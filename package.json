@@ -1,0 +1,21 @@
+{
+  "name": "financial-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "build": "npm run build --prefix client",
+    "test": "npm test --prefix server",
+    "ci": "npm test --prefix server && npm run build --prefix client",
+    "start": "NODE_ENV=production node server/src/server.js",
+    "seed:demo": "npm run seed:demo --prefix server",
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client --include=dev"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "dependencies": {
+    "pm2": "^6.0.14"
+
+  }
+}

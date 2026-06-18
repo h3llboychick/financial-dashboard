@@ -1,0 +1,37 @@
+{
+  "name": "financial-dashboard-server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "seed:demo": "node scripts/seed-demo-data.js",
+    "secrets:generate": "node scripts/generate-encryption-keys.js",
+    "migrate:to-v1": "node scripts/migrate_to_v1.js",
+    "migrate:status": "node -e \"import('./src/infrastructure/db/migrator.js').then(m => m.migrator.executed().then(applied => { console.log('Applied:', applied) }))\"",
+    "migrate:up": "node -e \"import('./src/infrastructure/db/migrator.js').then(m => m.migrator.up())\"",
+    "migrate:down": "node -e \"import('./src/infrastructure/db/migrator.js').then(m => m.migrator.down())\"",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --passWithNoTests"
+  },
+  "dependencies": {
+    "better-sqlite3-multiple-ciphers": "^12.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.11.0",
+    "pino": "^10.3.1",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1",
+    "umzug": "^3.8.3"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {},
+    "testMatch": ["**/tests/**/*.test.js"]
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "supertest": "^7.2.2",
+    "@jest/globals": "^30.4.1"
+  }
+}

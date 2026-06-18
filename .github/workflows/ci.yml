@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    name: Test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+            client/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install server dependencies
+        run: npm ci --prefix server
+
+      - name: Install client dependencies
+        run: npm ci --prefix client
+
+      - name: Run server tests
+        run: npm test --prefix server
+
+      - name: Build client
+        run: npm run build --prefix client
