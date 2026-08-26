@@ -31,6 +31,7 @@ export const deleteLedger  = (id)   => request(`/ledgers/${id}`, { method: 'DELE
 
 export const getEntries    = ()     => request('/entries')
 export const createEntry   = (data) => request('/entries', { method: 'POST', body: JSON.stringify(data) })
+export const updateEntry   = (id, data) => request(`/entries/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const deleteEntry   = (id)   => request(`/entries/${id}`, { method: 'DELETE' })
 
 export const getCategories    = (ledgerId) => request(ledgerId ? `/categories?ledger_id=${ledgerId}` : '/categories')

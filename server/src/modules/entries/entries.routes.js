@@ -127,6 +127,52 @@ export function makeEntriesRouter(repos) {
     /**
      * @openapi
      * /entries/{id}:
+     *   patch:
+     *     tags: [Entries]
+     *     summary: Update an entry by ID
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: integer
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required: [ledger_id, wallet_id, amount, currency, category_id, date]
+     *             properties:
+     *               ledger_id:
+     *                 type: integer
+     *               wallet_id:
+     *                 type: integer
+     *               amount:
+     *                 type: number
+     *                 minimum: 0.01
+     *               currency:
+     *                 type: string
+     *               category_id:
+     *                 type: integer
+     *               date:
+     *                 type: string
+     *                 format: date
+     *               note:
+     *                 type: string
+     *     responses:
+     *       200:
+     *         description: Entry updated
+     *       400:
+     *         description: Missing or invalid fields
+     *       404:
+     *         description: Entry, ledger, wallet, or category not found
+     */
+    router.patch('/:id', controller.update)
+
+    /**
+     * @openapi
+     * /entries/{id}:
      *   delete:
      *     tags: [Entries]
      *     summary: Delete an entry by ID

@@ -142,7 +142,13 @@ export default function App() {
               />
             )}
             {activeTab === 'History' && (
-              <EntryList entries={entries} ledgers={ledgers} categories={categories} onDelete={loadData} />
+              <EntryList
+                entries={entries}
+                wallets={wallets}
+                ledgers={ledgers}
+                categories={categories}
+                onDataChange={loadData}
+              />
             )}
             {activeTab === 'Settings' && (
               <Settings ledgers={ledgers} categories={categories} onDataChange={loadData} />

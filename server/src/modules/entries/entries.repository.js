@@ -61,6 +61,15 @@ export function makeEntryRepo(db) {
         .prepare('INSERT INTO entries (ledger_id, category_id, user_id, wallet_id, amount, currency, date, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         .run(ledger_id, category_id, user_id, wallet_id, amount, currency, date, note)
     },
+    update({ entry_id, ledger_id, category_id, wallet_id, user_id, amount, currency, date, note }) {
+      return db
+        .prepare(`
+          UPDATE entries
+          SET ledger_id = ?, category_id = ?, wallet_id = ?, amount = ?, currency = ?, date = ?, note = ?
+          WHERE id = ? AND user_id = ?
+        `)
+        .run(ledger_id, category_id, wallet_id, amount, currency, date, note, entry_id, user_id)
+    },
     delete_by_id({ entry_id, user_id }) {
       return db.prepare('DELETE FROM entries WHERE id = ? AND user_id = ?').run(entry_id, user_id)
     }
