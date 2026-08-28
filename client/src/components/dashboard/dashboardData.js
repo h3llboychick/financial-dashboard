@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
 import { MONTHS_SHORT } from '../../constants.js'
+import { buildDashboardAnalytics } from './dashboardAnalytics.js'
 import { getYearMonth, convertEntryAmount, totalsFor } from './dashboardUtils.js'
 
 const DEFAULT_CHART_COLOR = '#6b7280'
 
-export const useDashboardData = ({ entries, ledgers, categories, selectedYear, selectedMonth, currencyCode, exchangeRateState, breakdownLedgerId }) => {
+export const useDashboardData = ({ entries, ledgers, categories, selectedYear, selectedMonth, currencyCode, exchangeRateState }) => {
   const currentYear = new Date().getFullYear()
   const years = useMemo(() => {
     const ys = new Set(entries.map(entry => getYearMonth(entry.date).year))
@@ -16,15 +17,6 @@ export const useDashboardData = ({ entries, ledgers, categories, selectedYear, s
     () => Object.fromEntries(ledgers.map(l => [l.id, l])),
     [ledgers]
   )
-  const categoryColorMap = useMemo(
-    () => Object.fromEntries(categories.map(c => [c.id, c.color])),
-    [categories]
-  )
-  const categoryNameMap = useMemo(
-    () => Object.fromEntries(categories.map(c => [c.id, c.name])),
-    [categories]
-  )
-
   const monthEntries = useMemo(() =>
     entries.filter(entry => {
       const { year, month } = getYearMonth(entry.date)
@@ -100,44 +92,20 @@ export const useDashboardData = ({ entries, ledgers, categories, selectedYear, s
     return result
   }, [entries, ledgerMap, selectedYear, selectedMonth, exchangeRateState, currencyCode])
 
-  const ledgerBreakdown = useMemo(() =>
-    ledgers.map(ledger => {
-      const total = monthEntries
-        .filter(entry => entry.ledger_id === ledger.id)
-        .reduce((sum, entry) => sum + convertEntryAmount(entry, currencyCode, exchangeRateState), 0)
-      return { ...ledger, total: parseFloat(total.toFixed(2)) }
-    }).filter(row => row.total > 0),
-    [ledgers, monthEntries, exchangeRateState, currencyCode]
-  )
-
-  const categoryData = useMemo(() => {
-    const map = {}
-    monthEntries
-      .filter(entry => entry.ledger_id === Number(breakdownLedgerId))
-      .forEach(entry => {
-        const category_id = entry.category_id || 0
-        const category_name = entry.category_name || categoryNameMap[category_id] || 'Uncategorized'
-        if (!map[category_id]) {
-          map[category_id] = {
-            category_id,
-            name: category_name,
-            color: categoryColorMap[category_id] || DEFAULT_CHART_COLOR,
-            value: 0,
-          }
-        }
-        map[category_id].value += convertEntryAmount(entry, currencyCode, exchangeRateState)
-      })
-    return Object.values(map)
-      .map(row => ({ ...row, value: parseFloat(row.value.toFixed(2)) }))
-      .sort((a, b) => b.value - a.value)
-  }, [monthEntries, breakdownLedgerId, exchangeRateState, currencyCode, categoryNameMap, categoryColorMap])
-
-  const categoryTotal = categoryData.reduce((sum, row) => sum + row.value, 0)
+  const analytics = useMemo(() => buildDashboardAnalytics({
+    entries,
+    ledgers,
+    categories,
+    selectedYear,
+    selectedMonth,
+    currencyCode,
+    exchangeRateState,
+  }), [entries, ledgers, categories, selectedYear, selectedMonth, currencyCode, exchangeRateState])
     
   return {
     filters: { years },
     summary: { totals, net, netChange },
-    charts: { barData, ledgerPieData, categoryData },
-    breakdowns: { ledgerBreakdown, categoryTotal },
+    charts: { barData, ledgerPieData },
+    analytics,
   }
 }
