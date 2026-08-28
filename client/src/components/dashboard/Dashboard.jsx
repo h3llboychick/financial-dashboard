@@ -11,8 +11,9 @@ import { useDashboardData } from './dashboardData.js'
 import { getEntryCurrency } from './dashboardUtils.js'
 import AnalyticsPanel from './AnalyticsPanel.jsx'
 import MetricCard from './MetricCard.jsx'
+import RecentActivity from './RecentActivity.jsx'
 
-export default function Dashboard({ entries, ledgers, categories }) {
+export default function Dashboard({ entries, wallets = [], ledgers, categories }) {
   const { currency, format } = useCurrency()
   const sourceCurrencies = useMemo(() =>
     [...new Set(entries.map(entry => getEntryCurrency(entry)))].sort(),
@@ -115,6 +116,15 @@ export default function Dashboard({ entries, ledgers, categories }) {
       </div>
 
       <AnalyticsPanel analytics={analytics} format={format} />
+
+      <RecentActivity
+        entries={entries}
+        wallets={wallets}
+        ledgers={ledgers}
+        selectedMonth={selectedMonth}
+        selectedYear={selectedYear}
+        format={format}
+      />
     </div>
   )
 }
