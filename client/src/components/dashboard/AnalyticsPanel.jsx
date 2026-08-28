@@ -1,19 +1,45 @@
 const TONE_STYLES = {
   attention: {
-    icon: '↗',
-    iconClass: 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300',
+    icon: 'attention',
+    iconClass: 'border border-amber-300 bg-transparent text-amber-600 dark:border-amber-700 dark:bg-transparent dark:text-amber-400',
     label: 'Needs attention',
   },
   positive: {
-    icon: '✓',
-    iconClass: 'bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-300',
+    icon: 'positive',
+    iconClass: 'border border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300',
     label: 'Positive change',
   },
   neutral: {
-    icon: '•',
-    iconClass: 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300',
+    icon: 'neutral',
+    iconClass: 'border border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300',
     label: 'Worth knowing',
   },
+}
+
+function StatusIcon({ type, className }) {
+  return (
+    <span className={`grid h-8 w-8 place-items-center rounded-lg ${className}`} aria-hidden="true">
+      {type === 'attention' && (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7.5v6" />
+          <path d="M12 17h.01" />
+        </svg>
+      )}
+      {type === 'positive' && (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m5 12.5 4.25 4.25L19 7" />
+        </svg>
+      )}
+      {type === 'neutral' && (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 11v6" />
+          <path d="M12 7h.01" />
+        </svg>
+      )}
+    </span>
+  )
 }
 
 function percentage(value) {
@@ -109,7 +135,7 @@ export default function AnalyticsPanel({ analytics, format }) {
             return (
               <article key={card.id} className="flex min-h-44 flex-col rounded-xl border border-gray-100 bg-gray-50/70 p-4 dark:border-gray-700 dark:bg-gray-700/30">
                 <div className="flex items-center justify-between gap-3 mb-3">
-                  <span className={`grid h-8 w-8 place-items-center rounded-lg text-sm font-bold ${tone.iconClass}`}>{tone.icon}</span>
+                  <StatusIcon type={tone.icon} className={tone.iconClass} />
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{tone.label}</span>
                 </div>
                 <h4 className="text-sm font-semibold leading-5 text-gray-900 dark:text-gray-100">{card.title}</h4>
