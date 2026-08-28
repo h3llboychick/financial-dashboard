@@ -131,7 +131,7 @@ export default function App() {
         ) : (
           <>
             {activeTab === 'Dashboard' && (
-              <Dashboard entries={entries} ledgers={ledgers} categories={categories}/>
+              <Dashboard entries={entries} wallets={wallets} ledgers={ledgers} categories={categories}/>
             )}
             {activeTab === 'Add Entry' && (
               <EntryForm
