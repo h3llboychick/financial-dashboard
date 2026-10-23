@@ -1,0 +1,3 @@
+# Inert OpenAPI examples in the initial commit only. New findings stay enabled.
+37065ca6af829abacbb9e4d4ddb269a61e17bb48:server/src/modules/auth/auth.routes.js:generic-api-key:57
+37065ca6af829abacbb9e4d4ddb269a61e17bb48:server/src/modules/wallets/wallets.routes.js:generic-api-key:223

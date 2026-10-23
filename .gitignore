@@ -2,8 +2,15 @@ node_modules/
 server/node_modules/
 client/node_modules/
 client/dist/
-.env
+.env*
+# Only sanitized example files belong in Git.
+!.env.example
+!.env.*.example
 *.db
 *.db-*
 *.sqlite
 *.sqlite-*
+# DATABASE_PATH may have an operator-selected extension, or none.
+*.encrypted-backup-*
+# Interrupted conversions may leave private temporary staging directories.
+.*.encryption-staging-*/

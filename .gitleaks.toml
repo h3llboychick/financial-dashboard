@@ -1,0 +1,4 @@
+title = "Financial dashboard secret detection"
+
+[extend]
+useDefault = true
