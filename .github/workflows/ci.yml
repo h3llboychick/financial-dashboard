@@ -41,3 +41,24 @@ jobs:
 
       - name: Build client
         run: npm run build --prefix client
+
+  secret-scan:
+    name: Scan secrets in full Git history
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out full repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install checksum-pinned Gitleaks CLI
+        run: bash .github/scripts/install-gitleaks.sh "$RUNNER_TEMP/gitleaks"
+
+      - name: Verify scanner detection and checksum rejection
+        run: bash .github/scripts/test-secret-scanning.sh "$RUNNER_TEMP/gitleaks/gitleaks"
+
+      - name: Scan all committed history with redacted output
+        run: bash .github/scripts/scan-secrets.sh "$RUNNER_TEMP/gitleaks/gitleaks"
