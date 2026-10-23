@@ -17,7 +17,7 @@ export function makeCategoriesRouter(repos) {
      *       - in: query
      *         name: ledger_id
      *         schema:
-     *           type: integer
+     *           $ref: '#/components/schemas/FinancialId'
      *         description: Filter categories to a specific ledger
      *     responses:
      *       200:
@@ -55,11 +55,11 @@ export function makeCategoriesRouter(repos) {
      *             required: [ledger_id, name, color]
      *             properties:
      *               ledger_id:
-     *                 type: integer
+     *                 $ref: '#/components/schemas/FinancialId'
      *               name:
-     *                 type: string
+     *                 $ref: '#/components/schemas/FinancialName'
      *               color:
-     *                 type: string
+     *                 $ref: '#/components/schemas/FinancialColor'
      *                 description: Hex color string
      *                 example: '#4ade80'
      *           example:
@@ -110,7 +110,7 @@ export function makeCategoriesRouter(repos) {
      *         name: id
      *         required: true
      *         schema:
-     *           type: integer
+     *           $ref: '#/components/schemas/FinancialId'
      *         description: ID of the category to delete
      *     responses:
      *       204:

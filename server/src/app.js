@@ -21,6 +21,7 @@ import { makeWalletsRouter } from './modules/wallets/wallets.routes.js'
 import { makeWalletRepo } from './modules/wallets/wallets.repository.js'
 import { requireAuth, requireAuthDev } from './shared/middleware/authMiddleware.js'
 import { makeUserDefaultsService } from './modules/users/userDefaults.service.js'
+import { errorHandler } from './shared/middleware/errorHandler.js'
 
 const currentFile = fileURLToPath(import.meta.url)
 const __dirname = dirname(currentFile)
@@ -80,5 +81,6 @@ export function createApp() {
     })
   }
 
+  app.use(errorHandler)
   return app
 }

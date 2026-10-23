@@ -1,8 +1,6 @@
-import {
-  SUPPORTED_CURRENCY_CODES,
-} from '../../shared/constants.js'
+import { credentialInput, currencyInput, enumInput, money, nameInput, objectInput, positiveId } from '../../shared/validation/financialInput.js'
 import exchangeAccountService from '../exchanges/exchangeAccount.service.js'
-import { getSupportedExchanges } from '../exchanges/registry.js'
+import { getExchangeAdapter, getSupportedExchanges } from '../exchanges/registry.js'
 
 const WALLET_TYPES = new Set(['fiat', 'exchange'])
 const EXCHANGE_SLUGS = getSupportedExchanges()
@@ -16,12 +14,6 @@ function compute_fiat_balance(wallet_repo, wallet, user_id) {
   })
   return wallet.initial_balance + totals.total_income - totals.total_expense - totals.total_investment
 }
-
-function parse_balance(value) {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
 
 export function makeWalletsController({ wallet_repo }) {
     function list(req, res) {
@@ -59,27 +51,18 @@ export function makeWalletsController({ wallet_repo }) {
 
 
     function create(req, res) {
-        const { name, currency, type, initial_balance } = req.body
-        const normalized_currency = String(currency || '').trim().toUpperCase()
-
-        if (!name?.trim() || !normalized_currency || !WALLET_TYPES.has(type)) {
-            return res.status(400).json({ error: 'name, currency, and type are required' })
-        }
-        if (!SUPPORTED_CURRENCY_CODES.has(normalized_currency)) {
-            return res.status(400).json({ error: 'Unsupported currency' })
-        }
-
-        const parsed_initial_balance = parse_balance(initial_balance ?? 0)
-        if (parsed_initial_balance === null) {
-            return res.status(400).json({ error: 'initial_balance must be a number' })
-        }
+        const body = objectInput(req.body)
+        const name = nameInput(body.name)
+        const normalized_currency = currencyInput(body.currency)
+        const type = enumInput(body.type, WALLET_TYPES, 'type')
+        const parsed_initial_balance = Object.hasOwn(body, 'initial_balance') ? money(body.initial_balance, 'initial_balance') : 0
 
         try {
             const user_id = req.user.user_id
             const balance_anchor_entry_id = type === 'fiat' ? wallet_repo.get_max_entry_id({ user_id }) : 0
             const result = wallet_repo.create({
                 user_id,
-                name: name.trim(),
+                name,
                 currency: normalized_currency,
                 type,
                 initial_balance: parsed_initial_balance,
@@ -97,17 +80,14 @@ export function makeWalletsController({ wallet_repo }) {
 
     function update(req, res) {
         const user_id = req.user.user_id
-        const wallet_id = req.params.id
+        const wallet_id = positiveId(req.params.id)
         const wallet = wallet_repo.find_by_id({ wallet_id, user_id })
         if (!wallet) return res.status(404).json({ error: 'Not found' })
 
-        const { name, initial_balance } = req.body
-        const has_initial_balance = Object.hasOwn(req.body, 'initial_balance')
-
-        const parsed_initial_balance = has_initial_balance ? parse_balance(initial_balance) : undefined
-        if (has_initial_balance && parsed_initial_balance === null) {
-            return res.status(400).json({ error: 'initial_balance must be a number' })
-        }
+        const body = objectInput(req.body)
+        const name = Object.hasOwn(body, 'name') ? nameInput(body.name) : undefined
+        const has_initial_balance = Object.hasOwn(body, 'initial_balance')
+        const parsed_initial_balance = has_initial_balance ? money(body.initial_balance, 'initial_balance') : undefined
 
         const reset_anchor = has_initial_balance && wallet.type === 'fiat'
         wallet_repo.update({
@@ -123,7 +103,7 @@ export function makeWalletsController({ wallet_repo }) {
 
     function remove(req, res) {
         const user_id = req.user.user_id
-        const wallet_id = req.params.id
+        const wallet_id = positiveId(req.params.id)
         const wallet = wallet_repo.find_by_id({ wallet_id, user_id })
         if (!wallet) return res.status(404).json({ error: 'Not found' })
 
@@ -133,18 +113,14 @@ export function makeWalletsController({ wallet_repo }) {
 
     function putExchangeCredentials(req, res) {
         const user_id = req.user.user_id
-        const wallet_id = req.params.id
+        const wallet_id = positiveId(req.params.id)
         const wallet = wallet_repo.find_by_id({ wallet_id, user_id })
         if (!wallet) return res.status(404).json({ error: 'Not found' })
         if (wallet.type !== 'exchange') return res.status(400).json({ error: 'Only exchange wallets support credentials' })
 
-        const { slug, credentials } = req.body
-        if (!slug || !credentials) {
-            return res.status(400).json({ error: 'slug and credentials are required' })
-        }
-        if (!EXCHANGE_SLUGS.has(slug)) {
-            return res.status(400).json({ error: `Unknown exchange slug. Supported: ${[...EXCHANGE_SLUGS].join(', ')}` })
-        }
+        const body = objectInput(req.body)
+        const slug = enumInput(body.slug, EXCHANGE_SLUGS, 'exchange slug')
+        const credentials = credentialInput(body.credentials, getExchangeAdapter(slug).credential_fields)
 
         wallet_repo.upsert_exchange_credentials({ user_id, wallet_id: wallet.id, slug, credentials })
         res.status(201).json({ ok: true })
@@ -152,7 +128,7 @@ export function makeWalletsController({ wallet_repo }) {
 
     async function getExchangeLiveBalance(req, res) {
         const user_id = req.user.user_id
-        const wallet_id = req.params.id
+        const wallet_id = positiveId(req.params.id)
         const wallet = wallet_repo.find_by_id({ wallet_id, user_id })
         if (!wallet) return res.status(404).json({ error: 'Not found' })
         if (wallet.type !== 'exchange') return res.status(400).json({ error: 'Only exchange wallets have a live balance' })
