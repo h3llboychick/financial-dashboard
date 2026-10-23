@@ -52,17 +52,18 @@ git init --quiet "$repo"
 git -C "$repo" config user.name 'Secret scanner regression'
 git -C "$repo" config user.email 'secret-scanner@example.invalid'
 cp -- "$project_dir/.gitleaks.toml" "$repo/.gitleaks.toml"
+cp -- "$project_dir/.gitleaksignore" "$repo/.gitleaksignore"
 printf 'A clean fixture.\n' > "$repo/README"
 printf '.env\n' > "$repo/.gitignore"
 # Generate a nonfunctional token at runtime; an ignored local .env must never be scanned.
 synthetic_token="ghp_$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 36 || true)"
 [[ ${#synthetic_token} -eq 40 ]] || fail 'could not generate a synthetic token'
 printf 'api_token = "%s"\n' "$synthetic_token" > "$repo/.env"
-git -C "$repo" add README .gitleaks.toml .gitignore
+git -C "$repo" add README .gitleaks.toml .gitleaksignore .gitignore
 git -C "$repo" commit --quiet -m 'clean fixture'
 bash "$script_dir/scan-secrets.sh" "$gitleaks_bin" "$repo" > "$scratch/clean.log" 2>&1 || fail 'clean history scan failed'
 
-# Use an allowlisted documentation path: real tokens must still be detected there.
+# Use the historical exception path: a new finding in that file must still fail.
 mkdir -p "$repo/server/src/modules/auth"
 printf ' * token: %s\n' "$synthetic_token" > "$repo/server/src/modules/auth/auth.routes.js"
 git -C "$repo" add server/src/modules/auth/auth.routes.js

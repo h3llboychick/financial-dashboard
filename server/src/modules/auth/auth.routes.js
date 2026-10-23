@@ -54,7 +54,7 @@ export function makeAuthRouter(services) {
      *         content:
      *           application/json:
      *             example:
-     *               token: eyJhbGciOiJIUzI1NiJ9...
+     *               token: example-jwt
      *               user:
      *                 id: 123456789
      *                 username: daniil

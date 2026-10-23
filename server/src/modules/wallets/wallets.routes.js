@@ -218,8 +218,8 @@ export function makeWalletsRouter(repos) {
      *           example:
      *             slug: kraken
      *             credentials:
-     *              api_key: ABCDEF1234567890
-     *              api_secret: base64encodedSecret==
+     *              api_key: example-api-key
+     *              api_secret: example-api-secret
      *     responses:
      *       201:
      *         description: Credentials saved

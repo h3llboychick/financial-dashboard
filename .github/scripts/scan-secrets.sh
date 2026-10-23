@@ -6,4 +6,4 @@ if [[ $# -lt 1 || $# -gt 2 ]]; then
   exit 2
 fi
 exec "$1" git --redact=100 --no-banner --no-color --verbose \
-  --exit-code=1 --log-opts='--all' "${2:-.}"
+  --gitleaks-ignore-path "${2:-.}/.gitleaksignore" --exit-code=1 --log-opts='--all' "${2:-.}"

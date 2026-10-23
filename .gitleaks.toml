@@ -2,23 +2,3 @@ title = "Financial dashboard secret detection"
 
 [extend]
 useDefault = true
-
-[[rules]]
-id = "generic-api-key"
-
-  # This truncated JWT is an inert OpenAPI response example, not a usable token.
-  # Match the exact documentation line and path; actual tokens in this file still fail.
-  [[rules.allowlists]]
-  description = "Truncated JWT in the authentication OpenAPI example"
-  condition = "AND"
-  paths = ['''^server/src/modules/auth/auth\.routes\.js$''']
-  regexTarget = "line"
-  regexes = ['''^\s*\*\s+token: eyJhbGciOiJIUzI1NiJ9\.\.\.\s*$''']
-
-  # This ascending dummy key occurs only in an OpenAPI request example.
-  [[rules.allowlists]]
-  description = "Dummy exchange key in the wallet OpenAPI example"
-  condition = "AND"
-  paths = ['''^server/src/modules/wallets/wallets\.routes\.js$''']
-  regexTarget = "line"
-  regexes = ['''^\s*\*\s+api_key: ABCDEF1234567890\s*$''']
