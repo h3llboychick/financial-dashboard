@@ -125,3 +125,14 @@ npm start
 ```
 
 In production, configure real Telegram credentials, strong JWT and encryption secrets, and a persistent encrypted SQLite database path.
+
+### HTTP Security Headers
+
+Express applies Helmet before CORS, body parsing, authentication, API routes, and static files, so security headers also cover preflight and error responses. No new environment variables are required.
+
+- Serve production traffic over HTTPS, typically through a TLS-terminating reverse proxy. With `NODE_ENV=production`, Helmet sends HSTS (`max-age=31536000; includeSubDomains`) and CSP `upgrade-insecure-requests`. All subdomains covered by HSTS must support HTTPS. These two settings are disabled outside production to keep local HTTP development working. HSTS does not configure TLS or redirect an initial HTTP request; configure the proxy to redirect HTTP to HTTPS.
+- The content security policy permits scripts from this app and `https://telegram.org`, and frames from this app and `https://oauth.telegram.org`. Browser API requests stay on the same origin; exchange-rate and exchange-provider calls happen on the server and need no CSP exceptions. Same-origin opener protection allows popups so Telegram login can communicate with its authentication window.
+- The legacy Telegram widget evaluates its `data-onauth` callback, so `script-src` temporarily permits `'unsafe-eval'`. Inline script blocks and script attributes remain blocked. Remove the eval exception when migrating away from the legacy widget to a login integration that accepts a function callback without evaluation.
+- Inline styles remain allowed for React/Recharts and the development-only Swagger UI. Tightening this requires replacing inline styles and adding nonces or hashes for Swagger's style blocks. Swagger's JavaScript is served from the same origin.
+
+Helmet protects responses served by Express. During local development, the separate Vite server serves the client HTML. When adding browser-side third-party services, update the CSP allowlist and verify Telegram login and browser console messages before deployment.
