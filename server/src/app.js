@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import morgan from 'morgan'
@@ -49,8 +50,26 @@ export function createApp() {
     userDefaultsService: makeUserDefaultsService(db)
   }
   const isDev = process.env.NODE_ENV === 'dev'
+  const isProduction = process.env.NODE_ENV === 'production'
   const devUserId = isDev ? getDevAuthUserId() : null
 
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        // The legacy Telegram widget evaluates data-onauth. Remove unsafe-eval
+        // when replacing it with a login integration that accepts a function.
+        scriptSrc: ["'self'", 'https://telegram.org', "'unsafe-eval'"],
+        frameSrc: ["'self'", 'https://oauth.telegram.org'],
+        connectSrc: ["'self'"],
+        // React/Recharts and the development Swagger UI use inline styles.
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        upgradeInsecureRequests: isProduction ? [] : null,
+      },
+    },
+    // Preserve communication with Telegram's authentication popup.
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+    strictTransportSecurity: isProduction,
+  }))
   app.use(cors())
   app.use(express.json())
   app.use(morgan('combined'))
@@ -74,7 +93,7 @@ export function createApp() {
     services.userDefaultsService.ensureUserDefaults(devUserId)
   }
 
-  if (process.env.NODE_ENV === 'production') {
+  if (isProduction) {
     app.use(express.static(join(__dirname, '../../client/dist')))
     app.get('*', (req, res) => {
       res.sendFile(join(__dirname, '../../client/dist/index.html'))
