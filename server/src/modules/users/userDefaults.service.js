@@ -1,6 +1,6 @@
 import { DEFAULT_LEDGERS, DEFAULT_CATEGORIES } from '../../shared/constants.js'
 
-function seedCategoriesForLedger(db, user_id, ledger) {
+export function seedCategoriesForLedger(db, user_id, ledger) {
   const insert = db.prepare(`
     INSERT OR IGNORE INTO ledger_categories (user_id, ledger_id, name, color, is_default)
     VALUES (?, ?, ?, ?, ?)

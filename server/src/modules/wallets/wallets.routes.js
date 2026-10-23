@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { makeWalletsController } from './wallets.controller.js'
+import { asyncHandler } from '../../shared/middleware/asyncHandler.js'
 
 
 export function makeWalletsRouter(repos) {
@@ -54,16 +55,14 @@ export function makeWalletsRouter(repos) {
      *             required: [name, currency, type]
      *             properties:
      *               name:
-     *                 type: string
+     *                 $ref: '#/components/schemas/FinancialName'
      *               currency:
-     *                 type: string
-     *                 example: EUR
+     *                 $ref: '#/components/schemas/FinancialCurrency'
      *               type:
      *                 type: string
      *                 enum: [fiat, exchange]
      *               initial_balance:
-     *                 type: number
-     *                 default: 0
+     *                 $ref: '#/components/schemas/WalletBalance'
      *           example:
      *             name: Main Account
      *             currency: EUR
@@ -118,7 +117,7 @@ export function makeWalletsRouter(repos) {
      *         name: id
      *         required: true
      *         schema:
-     *           type: integer
+     *           $ref: '#/components/schemas/FinancialId'
      *         description: ID of the wallet to update
      *     requestBody:
      *       required: true
@@ -128,9 +127,9 @@ export function makeWalletsRouter(repos) {
      *             type: object
      *             properties:
      *               name:
-     *                 type: string
+     *                 $ref: '#/components/schemas/FinancialName'
      *               initial_balance:
-     *                 type: number
+     *                 $ref: '#/components/schemas/WalletBalance'
      *                 description: >
      *                   Setting this for a fiat wallet resets the balance anchor
      *                   to the latest entry, so the new initial balance takes effect
@@ -175,7 +174,7 @@ export function makeWalletsRouter(repos) {
      *         name: id
      *         required: true
      *         schema:
-     *           type: integer
+     *           $ref: '#/components/schemas/FinancialId'
      *         description: ID of the wallet to delete
      *     responses:
      *       204:
@@ -200,7 +199,7 @@ export function makeWalletsRouter(repos) {
      *         name: id
      *         required: true
      *         schema:
-     *           type: integer
+     *           $ref: '#/components/schemas/FinancialId'
      *         description: ID of the exchange wallet
      *     requestBody:
      *       required: true
@@ -215,8 +214,7 @@ export function makeWalletsRouter(repos) {
      *                 enum: [kraken]
      *                 description: Exchange identifier
      *               credentials:
-     *                 type: object
-     *                 additionalProperties: true
+     *                 $ref: '#/components/schemas/KrakenCredentials'
      *           example:
      *             slug: kraken
      *             credentials:
@@ -267,7 +265,7 @@ export function makeWalletsRouter(repos) {
      *         name: id
      *         required: true
      *         schema:
-     *           type: integer
+     *           $ref: '#/components/schemas/FinancialId'
      *         description: ID of the exchange wallet
      *     responses:
      *       200:
@@ -305,7 +303,7 @@ export function makeWalletsRouter(repos) {
      *             example:
      *               error: 'Kraken API error: Invalid key'
      */
-    router.get('/:id/live-balance', controller.getExchangeLiveBalance)
+    router.get('/:id/live-balance', asyncHandler(controller.getExchangeLiveBalance))
 
     return router;
 }

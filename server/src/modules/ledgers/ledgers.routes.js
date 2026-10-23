@@ -43,12 +43,12 @@ export function makeLedgersRouter(repos) {
      *             required: [name, type, color]
      *             properties:
      *               name:
-     *                 type: string
+     *                 $ref: '#/components/schemas/FinancialName'
      *               type:
      *                 type: string
      *                 enum: [expense, income, investment]
      *               color:
-     *                 type: string
+     *                 $ref: '#/components/schemas/FinancialColor'
      *                 description: Hex color string
      *                 example: '#4ade80'
      *           example:
@@ -94,7 +94,7 @@ export function makeLedgersRouter(repos) {
      *         name: id
      *         required: true
      *         schema:
-     *           type: integer
+     *           $ref: '#/components/schemas/FinancialId'
      *         description: ID of the ledger to delete
      *     responses:
      *       204:

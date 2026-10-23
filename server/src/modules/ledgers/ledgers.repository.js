@@ -1,3 +1,5 @@
+import { seedCategoriesForLedger } from '../users/userDefaults.service.js'
+
 export function makeLedgerRepo(db) {
   return {
       list({ user_id }) {
@@ -21,6 +23,9 @@ export function makeLedgerRepo(db) {
         return db
           .prepare('INSERT INTO ledgers (user_id, name, type, color) VALUES (?, ?, ?, ?)')
           .run(user_id, name, type, color)
+      },
+      seed_categories_for_ledger({ user_id, ledger }) {
+        return seedCategoriesForLedger(db, user_id, ledger)
       },
       count_entries({ user_id, ledger_id }) {
         return db

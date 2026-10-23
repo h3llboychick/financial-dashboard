@@ -3,6 +3,81 @@ import { makeEntriesController } from './entries.controller.js'
 
 
 
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     FinancialId:
+ *       description: Positive safe integer; decimal digit strings are also accepted.
+ *       oneOf:
+ *         - type: integer
+ *           minimum: 1
+ *           maximum: 9007199254740991
+ *         - type: string
+ *           pattern: '^[0-9]+$'
+ *           description: Numeric value must be within 1 to 9007199254740991.
+ *     FinancialName:
+ *       type: string
+ *       minLength: 1
+ *       maxLength: 100
+ *       pattern: '\S'
+ *       description: Must contain a non-whitespace character; surrounding whitespace is trimmed.
+ *     FinancialColor:
+ *       type: string
+ *       pattern: '^#[0-9a-fA-F]{6}$'
+ *       example: '#4ade80'
+ *     FinancialDate:
+ *       type: string
+ *       format: date
+ *       pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+ *       description: Real calendar date from 0001-01-01 to 9999-12-31, including leap-day validation.
+ *     FinancialNote:
+ *       type: string
+ *       maxLength: 2000
+ *       default: ''
+ *     FinancialCurrency:
+ *       type: string
+ *       enum: [EUR, USD, GBP, CHF, PLN, SEK, NOK, DKK, CZK, HUF, RON, BGN, KZT]
+ *       description: Case-insensitive; surrounding whitespace is trimmed. Entries default to EUR when omitted.
+ *     WalletBalance:
+ *       default: 0
+ *       description: Finite decimal number with absolute value at most 1000000000000. Signed and zero balances are allowed. Default applies on create; omission on update preserves the balance and anchor.
+ *       oneOf:
+ *         - type: number
+ *           minimum: -1000000000000
+ *           maximum: 1000000000000
+ *         - type: string
+ *           pattern: '^\s*[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?\s*$'
+ *           description: Parsed numeric value must be finite and within the stated bounds.
+ *     EntryAmount:
+ *       description: Positive finite decimal number at most 1000000000000.
+ *       oneOf:
+ *         - type: number
+ *           minimum: 0
+ *           exclusiveMinimum: true
+ *           maximum: 1000000000000
+ *         - type: string
+ *           pattern: '^\s*[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?\s*$'
+ *           description: Parsed numeric value must be finite, positive, and at most 1000000000000.
+ *     KrakenCredentials:
+ *       type: object
+ *       additionalProperties: false
+ *       required: [api_key, api_secret]
+ *       properties:
+ *         api_key:
+ *           type: string
+ *           minLength: 1
+ *           maxLength: 4096
+ *           pattern: '\S'
+ *           writeOnly: true
+ *         api_secret:
+ *           type: string
+ *           minLength: 1
+ *           maxLength: 4096
+ *           pattern: '\S'
+ *           writeOnly: true
+ */
+
 export function makeEntriesRouter(repos) {
     const controller = makeEntriesController(repos)
     const router = Router()
@@ -17,7 +92,7 @@ export function makeEntriesRouter(repos) {
      *       - in: query
      *         name: ledger_id
      *         schema:
-     *           type: integer
+     *           $ref: '#/components/schemas/FinancialId'
      *         description: Filter entries to a specific ledger
      *     responses:
      *       200:
@@ -61,25 +136,22 @@ export function makeEntriesRouter(repos) {
      *         application/json:
      *           schema:
      *             type: object
-     *             required: [ledger_id, wallet_id, amount, currency, category_id, date]
+     *             required: [ledger_id, wallet_id, amount, category_id, date]
      *             properties:
      *               ledger_id:
-     *                 type: integer
+     *                 $ref: '#/components/schemas/FinancialId'
      *               wallet_id:
-     *                 type: integer
+     *                 $ref: '#/components/schemas/FinancialId'
      *               amount:
-     *                 type: number
-     *                 minimum: 0.01
+     *                 $ref: '#/components/schemas/EntryAmount'
      *               currency:
-     *                 type: string
-     *                 example: EUR
+     *                 $ref: '#/components/schemas/FinancialCurrency'
      *               category_id:
-     *                 type: integer
+     *                 $ref: '#/components/schemas/FinancialId'
      *               date:
-     *                 type: string
-     *                 format: date
+     *                 $ref: '#/components/schemas/FinancialDate'
      *               note:
-     *                 type: string
+     *                 $ref: '#/components/schemas/FinancialNote'
      *           example:
      *             ledger_id: 3
      *             wallet_id: 2
@@ -135,31 +207,29 @@ export function makeEntriesRouter(repos) {
      *         name: id
      *         required: true
      *         schema:
-     *           type: integer
+     *           $ref: '#/components/schemas/FinancialId'
      *     requestBody:
      *       required: true
      *       content:
      *         application/json:
      *           schema:
      *             type: object
-     *             required: [ledger_id, wallet_id, amount, currency, category_id, date]
+     *             required: [ledger_id, wallet_id, amount, category_id, date]
      *             properties:
      *               ledger_id:
-     *                 type: integer
+     *                 $ref: '#/components/schemas/FinancialId'
      *               wallet_id:
-     *                 type: integer
+     *                 $ref: '#/components/schemas/FinancialId'
      *               amount:
-     *                 type: number
-     *                 minimum: 0.01
+     *                 $ref: '#/components/schemas/EntryAmount'
      *               currency:
-     *                 type: string
+     *                 $ref: '#/components/schemas/FinancialCurrency'
      *               category_id:
-     *                 type: integer
+     *                 $ref: '#/components/schemas/FinancialId'
      *               date:
-     *                 type: string
-     *                 format: date
+     *                 $ref: '#/components/schemas/FinancialDate'
      *               note:
-     *                 type: string
+     *                 $ref: '#/components/schemas/FinancialNote'
      *     responses:
      *       200:
      *         description: Entry updated
@@ -181,7 +251,7 @@ export function makeEntriesRouter(repos) {
      *         name: id
      *         required: true
      *         schema:
-     *           type: integer
+     *           $ref: '#/components/schemas/FinancialId'
      *         description: ID of the entry to delete
      *     responses:
      *       204:

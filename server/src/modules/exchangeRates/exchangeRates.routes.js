@@ -1,34 +1,41 @@
 import { Router } from 'express'
-import { SUPPORTED_CURRENCY_CODES } from '../../shared/constants.js'
+import { asyncHandler } from '../../shared/middleware/asyncHandler.js'
+import { rateQueryInput } from '../../shared/validation/financialInput.js'
 
 const FRANKFURTER_RATES_URL = 'https://api.frankfurter.dev/v2/rates'
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000
 const cache = new Map()
 
-function normalizeCurrency(value) {
-  return String(value || '').trim().toUpperCase()
-}
-
-function parseSources(value) {
-  return String(value || '')
-    .split(',')
-    .map(normalizeCurrency)
-    .filter(Boolean)
-}
-
-function validateCurrency(code) {
-  return /^[A-Z]{3}$/.test(code) && SUPPORTED_CURRENCY_CODES.has(code)
-}
-
 export function makeExchangeRatesRouter() {
   const router = Router()
-  router.get('/', async (req, res) => {
-    const target = normalizeCurrency(req.query.target || 'EUR')
-    const sources = [...new Set(parseSources(req.query.sources))]
-
-    if (!validateCurrency(target) || sources.some(source => !validateCurrency(source))) {
-      return res.status(400).json({ error: 'Unsupported currency' })
-    }
+  /**
+   * @openapi
+   * /exchange-rates:
+   *   get:
+   *     tags: [Exchange Rates]
+   *     summary: Convert supported currencies to a target currency
+   *     parameters:
+   *       - in: query
+   *         name: target
+   *         schema:
+   *           $ref: '#/components/schemas/FinancialCurrency'
+   *         description: Defaults to EUR. Supply a single string, not nested or repeated parameters.
+   *       - in: query
+   *         name: sources
+   *         schema:
+   *           type: string
+   *           example: EUR,USD
+   *         description: Comma-separated supported currencies. Omitted or empty means no sources. Nested or repeated parameters are rejected.
+   *     responses:
+   *       200:
+   *         description: Target, inverse provider rates, and provider date
+   *       400:
+   *         description: Malformed query or unsupported currency
+   *       502:
+   *         description: Provider failed or returned invalid rates
+   */
+  router.get('/', asyncHandler(async (req, res) => {
+    const { target, sources } = rateQueryInput(req.query)
 
     const neededSources = sources.filter(source => source !== target).sort()
     if (neededSources.length === 0) {
@@ -61,7 +68,7 @@ export function makeExchangeRatesRouter() {
 
       const rows = await response.json()
       const targetToSourceRates = Object.fromEntries(
-        rows.map(row => [normalizeCurrency(row.quote), Number(row.rate)]),
+        rows.map(row => [String(row.quote).trim().toUpperCase(), Number(row.rate)]),
       )
 
       const rates = Object.fromEntries(sources.map(source => [source, 1]))
@@ -79,7 +86,7 @@ export function makeExchangeRatesRouter() {
     } catch (error) {
       res.status(502).json({ error: error.message || 'Failed to fetch exchange rates' })
     }
-  })
+  }))
 
   return router;
 }
