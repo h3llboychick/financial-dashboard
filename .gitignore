@@ -14,3 +14,7 @@ client/dist/
 *.encrypted-backup-*
 # Interrupted conversions may leave private temporary staging directories.
 .*.encryption-staging-*/
+# Locally packaged deployment artifacts.
+/deployment.tgz
+# Private operator instructions stay local.
+/deploy/LOCAL_SETUP.md

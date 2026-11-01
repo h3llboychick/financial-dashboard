@@ -9,8 +9,9 @@ initializeFinancialData(db)
 jest.unstable_mockModule('../src/infrastructure/db/connection.js', () => ({ db }))
 const { createApp } = await import('../src/app.js')
 
-const originalEnv = { NODE_ENV: process.env.NODE_ENV, DEV_AUTH_USER_ID: process.env.DEV_AUTH_USER_ID }
+const originalEnv = { NODE_ENV: process.env.NODE_ENV, DEV_AUTH_USER_ID: process.env.DEV_AUTH_USER_ID, APP_REVISION: process.env.APP_REVISION }
 afterEach(() => {
+  jest.restoreAllMocks()
   for (const [name, value] of Object.entries(originalEnv)) {
     if (value === undefined) delete process.env[name]
     else process.env[name] = value
@@ -35,6 +36,19 @@ function expectSecurityHeaders(response) {
 }
 
 describe('Helmet headers on the real Express application', () => {
+  test('exposes readiness and the running revision without authentication', async () => {
+    process.env.APP_REVISION = 'a'.repeat(40)
+    const response = await request(appFor('production')).get('/health').expect(200)
+    expectSecurityHeaders(response)
+    expect(response.body).toEqual({ status: 'ok', revision: 'a'.repeat(40) })
+  })
+
+  test('reports an unavailable database without leaking error details', async () => {
+    jest.spyOn(db, 'prepare').mockImplementation(() => { throw new Error('private database details') })
+    const response = await request(appFor('production')).get('/health').expect(503)
+    expect(response.body).toEqual({ status: 'unavailable' })
+  })
+
   test('protects production responses and permits only the required Telegram script and frame origins', async () => {
     const response = await request(appFor('production')).get('/api/config').expect(200)
     expectSecurityHeaders(response)
