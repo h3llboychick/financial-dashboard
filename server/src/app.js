@@ -73,6 +73,14 @@ export function createApp() {
   app.use(cors())
   app.use(express.json())
   app.use(morgan('combined'))
+  app.get('/health', (req, res) => {
+    try {
+      db.prepare('SELECT 1').get()
+      res.json({ status: 'ok', revision: process.env.APP_REVISION || 'unknown' })
+    } catch {
+      res.status(503).json({ status: 'unavailable' })
+    }
+  })
   app.use('/api', isDev ? requireAuthDev : requireAuth)
 
   app.use('/api/auth', makeAuthRouter(services))
