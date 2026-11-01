@@ -57,6 +57,14 @@ Financial data is sensitive, so the project is designed around local ownership a
 - The SQLite database is encrypted with a dedicated database encryption key (using AES-GCM-256).
 - Exchange API credentials use envelope encryption with a separate credential encryption key (KEK/DEK encryption).
 
+Pull requests must pass dependency review, CodeQL analysis, and secret scanning before merging:
+
+- [Dependency review](.github/workflows/security.yml) blocks newly introduced high or critical vulnerabilities in runtime and development dependencies. It requires the repository's dependency graph to be enabled.
+- CodeQL uses GitHub's default setup with the extended query suite for JavaScript/TypeScript and GitHub Actions. Manage it under **Settings → Advanced Security → CodeQL analysis**; the code scanning check fails on new high or critical security alerts and standard errors.
+- [Secret scanning](.github/workflows/ci.yml) runs Gitleaks over the full Git history with redacted output. GitGuardian also checks pull requests.
+
+Dependency review and CodeQL are free for this public repository. Keep their check names and expected GitHub apps in the `master` branch protection rule aligned with the actual check runs; requiring a check does not enable its scanner.
+
 ## Setup
 
 Installation, local development, environment variables, and production notes are documented in [SETUP.md](SETUP.md).
