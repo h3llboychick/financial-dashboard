@@ -9,13 +9,20 @@ function settings(projectRoot) {
   if (fs.realpathSync(appDirectory) !== appDirectory) throw new Error('app/ must be a real directory')
   const requireFromServer = createRequire(path.join(appDirectory, 'server/package.json'))
   const envFile = path.join(root, '.env')
-  const envStat = fs.statSync(envFile)
-  if (!envStat.isFile() || (envStat.mode & 0o077) !== 0) throw new Error('Root .env must be a private file (chmod 600)')
-  const envLink = path.join(appDirectory, 'server/.env')
-  if (!fs.lstatSync(envLink).isSymbolicLink() || fs.realpathSync(envLink) !== fs.realpathSync(envFile)) {
-    throw new Error('app/server/.env must link to the project-root .env')
+  const envDescriptor = fs.openSync(envFile, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK)
+  let env
+  try {
+    // Check and read the same open file, even if its path is replaced meanwhile.
+    const envStat = fs.fstatSync(envDescriptor)
+    if (!envStat.isFile() || (envStat.mode & 0o077) !== 0) throw new Error('Root .env must be a private file (chmod 600)')
+    const envLink = path.join(appDirectory, 'server/.env')
+    if (!fs.lstatSync(envLink).isSymbolicLink() || fs.realpathSync(envLink) !== fs.realpathSync(envFile)) {
+      throw new Error('app/server/.env must link to the project-root .env')
+    }
+    env = requireFromServer('dotenv').parse(fs.readFileSync(envDescriptor))
+  } finally {
+    fs.closeSync(envDescriptor)
   }
-  const env = requireFromServer('dotenv').parse(fs.readFileSync(envFile))
   if (env.NODE_ENV && env.NODE_ENV !== 'production') throw new Error('Root .env must use NODE_ENV=production')
   const databasePath = env.SQLITE_DB_PATH || env.DATABASE_PATH
   if (!databasePath || !path.isAbsolute(databasePath)) {

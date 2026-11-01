@@ -64,6 +64,43 @@ test('settings read the private root configuration and refuse development mode',
   assert.throws(() => settings(f.directory), /NODE_ENV=production/)
 })
 
+test('settings read the validated environment file when its path is replaced before reading', t => {
+  const f = fixture(t)
+  const envFile = path.join(f.directory, '.env')
+  const inode = fs.statSync(envFile).ino
+  const readFile = fs.readFileSync
+  let replaced = false
+  t.mock.method(fs, 'readFileSync', function (file, ...args) {
+    const isEnv = file === envFile || (typeof file === 'number' && fs.fstatSync(file).ino === inode)
+    if (isEnv && !replaced) {
+      replaced = true
+      fs.renameSync(envFile, `${envFile}.original`)
+      f.env.NODE_ENV = 'development'
+      f.writeEnv()
+      fs.chmodSync(envFile, 0o644)
+    }
+    return readFile.call(this, file, ...args)
+  })
+  assert.equal(settings(f.directory).env.NODE_ENV, 'production')
+  assert.equal(replaced, true)
+})
+
+test('settings close the environment descriptor when permission validation fails', t => {
+  const f = fixture(t)
+  const envFile = path.join(f.directory, '.env')
+  fs.chmodSync(envFile, 0o644)
+  const open = fs.openSync
+  let descriptor
+  t.mock.method(fs, 'openSync', function (file, ...args) {
+    const fd = open.call(this, file, ...args)
+    if (file === envFile) descriptor = fd
+    return fd
+  })
+  assert.throws(() => settings(f.directory), /private file/)
+  assert.ok(Number.isInteger(descriptor))
+  assert.throws(() => fs.fstatSync(descriptor), { code: 'EBADF' })
+})
+
 test('settings reject a copied environment file, broad permissions, and a database inside app/', t => {
   const f = fixture(t)
   fs.chmodSync(path.join(f.directory, '.env'), 0o644)
