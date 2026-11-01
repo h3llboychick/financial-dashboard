@@ -3,7 +3,7 @@ const path = require('node:path')
 const { createRequire } = require('node:module')
 
 function settings(projectRoot) {
-  if (Number(process.versions.node.split('.')[0]) < 24) throw new Error('Deployment requires Node.js 24 or newer')
+  if (Number(process.versions.node.split('.')[0]) < 22) throw new Error('Deployment requires Node.js 22 or newer')
   const root = fs.realpathSync(projectRoot)
   const appDirectory = path.join(root, 'app')
   if (fs.realpathSync(appDirectory) !== appDirectory) throw new Error('app/ must be a real directory')
