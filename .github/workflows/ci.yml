@@ -53,13 +53,13 @@ jobs:
         run: npm run build --prefix client
 
       - name: Package tested frontend and deployment helpers
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master' && vars.DEPLOY_ENABLED == 'true'
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
         run: |
           printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/COMMIT"
           tar --exclude=deploy/tests --exclude=deploy/LOCAL_SETUP.md -czf deployment.tgz deploy client/dist -C "$RUNNER_TEMP" COMMIT
 
       - name: Upload deployment artifact
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master' && vars.DEPLOY_ENABLED == 'true'
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
         uses: actions/upload-artifact@v4
         with:
           name: deployment-${{ github.sha }}
@@ -86,48 +86,3 @@ jobs:
 
       - name: Scan all committed history with redacted output
         run: bash .github/scripts/scan-secrets.sh "$RUNNER_TEMP/gitleaks/gitleaks"
-
-  deploy:
-    name: Deploy to production
-    needs: [test-and-build, secret-scan]
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master' && vars.DEPLOY_ENABLED == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment: production
-    concurrency:
-      group: production-deployment
-      cancel-in-progress: false
-    steps:
-      - name: Check out deployment scripts
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Download tested frontend and deployment helpers
-        uses: actions/download-artifact@v4
-        with:
-          name: deployment-${{ github.sha }}
-
-      - name: Skip a superseded revision
-        id: revision
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          latest=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/master" --jq .object.sha)
-          if [ "$latest" = "$GITHUB_SHA" ]; then
-            echo 'current=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'A newer revision is on master; skipping this deployment.'
-          fi
-
-      - name: Deploy and verify
-        if: steps.revision.outputs.current == 'true'
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_ROOT: ${{ secrets.DEPLOY_ROOT }}
-          DEPLOY_PM2_NAME: ${{ secrets.DEPLOY_PM2_NAME }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-        run: bash .github/scripts/deploy-ssh.sh
