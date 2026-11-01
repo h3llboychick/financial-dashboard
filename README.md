@@ -69,6 +69,8 @@ Dependency review and CodeQL are free for this public repository. Keep their che
 
 Installation, local development, environment variables, and production notes are documented in [SETUP.md](SETUP.md).
 
+CI publishes a tested deployment artifact for successful builds on `master`. Production deployment runs separately in a private repository so server credentials and deployment logs are not exposed through public workflow runs. Operators select a successful CI build there; PR builds cannot deploy.
+
 ## Roadmap
 
 - Expand automated test coverage (including dedicated security tests) across API routes and important frontend flows.

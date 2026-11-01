@@ -4,7 +4,6 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const crypto = require('node:crypto')
-const { spawnSync } = require('node:child_process')
 const Database = require('../../server/node_modules/better-sqlite3-multiple-ciphers')
 const { settings } = require('../settings.cjs')
 const { backupDatabase, validateDatabase } = require('../backup-database.cjs')
@@ -160,35 +159,21 @@ test('preflight refuses plaintext and incorrect encryption keys', async t => {
   await assert.rejects(validateDatabase(settings(encrypted.directory)))
 })
 
-test('SSH deployment rejects shell metacharacters before making a connection', () => {
-  const result = spawnSync('bash', ['.github/scripts/deploy-ssh.sh'], {
-    cwd: repo, encoding: 'utf8',
-    env: { ...process.env, DEPLOY_HOST: 'example.com;unexpected-command', DEPLOY_USER: 'fixture-user',
-      DEPLOY_SSH_KEY: 'unused-test-value', DEPLOY_KNOWN_HOSTS: 'unused-test-value',
-      DEPLOY_ROOT: '/srv/fixture-app',
-      DEPLOY_PM2_NAME: 'fixture-app' },
-  })
-  assert.equal(result.status, 2)
-  assert.equal(result.stdout, '')
-  assert.equal(result.stderr, '')
-})
-
-test('deployment runs only for master pushes/manual runs after both CI jobs succeed', () => {
+test('public CI publishes master artifacts without server credentials or deployment execution', () => {
   const yaml = require('../../node_modules/js-yaml')
-  const workflow = yaml.load(fs.readFileSync(path.join(repo, '.github/workflows/ci.yml'), 'utf8'))
-  assert.deepEqual(workflow.jobs.deploy.needs, ['test-and-build', 'secret-scan'])
-  assert.match(workflow.jobs.deploy.if, /github.event_name == 'push'/)
-  assert.match(workflow.jobs.deploy.if, /refs\/heads\/master/)
-  assert.match(workflow.jobs.deploy.if, /DEPLOY_ENABLED == 'true'/)
-  assert.equal(workflow.jobs.deploy.concurrency['cancel-in-progress'], false)
-  assert.equal(workflow.jobs.deploy.environment, 'production')
+  const contents = fs.readFileSync(path.join(repo, '.github/workflows/ci.yml'), 'utf8')
+  const workflow = yaml.load(contents)
+  assert.equal(workflow.jobs.deploy, undefined)
+  assert.doesNotMatch(contents, /secrets\.DEPLOY_|environment: production|deploy-ssh/)
   assert.deepEqual(workflow.permissions, { contents: 'read' })
-  assert.equal(workflow.jobs.deploy.env, undefined)
-  const connection = workflow.jobs.deploy.steps.find(step => step.name === 'Deploy and verify')
-  for (const name of ['DEPLOY_HOST', 'DEPLOY_USER', 'DEPLOY_ROOT', 'DEPLOY_PM2_NAME', 'DEPLOY_SSH_KEY', 'DEPLOY_KNOWN_HOSTS']) {
-    assert.equal(connection.env[name], '${{ secrets.' + name + ' }}')
+  for (const name of ['Package tested frontend and deployment helpers', 'Upload deployment artifact']) {
+    const step = workflow.jobs['test-and-build'].steps.find(step => step.name === name)
+    assert.ok(step, `Missing ${name}`)
+    assert.match(step.if, /github.event_name == 'push'/)
+    assert.match(step.if, /refs\/heads\/master/)
+    assert.doesNotMatch(step.if, /DEPLOY_ENABLED/)
   }
-  assert.ok(workflow.on.workflow_dispatch !== undefined || Object.hasOwn(workflow.on, 'workflow_dispatch'))
+  assert.ok(Object.hasOwn(workflow.on, 'workflow_dispatch'))
 })
 
 test('PM2 preflight rejects incorrect paths, duplicate processes, and conflicting secrets', t => {
