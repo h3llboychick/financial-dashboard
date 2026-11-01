@@ -4,7 +4,7 @@ This guide covers local development setup for Financial Dashboard.
 
 ## Requirements
 
-- Node.js 24 or newer
+- Node.js 22 or newer (CI tracks the latest 22.x release)
 - npm
 
 ## Install Dependencies
