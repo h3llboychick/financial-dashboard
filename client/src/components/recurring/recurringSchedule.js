@@ -72,3 +72,22 @@ export function buildSchedule({ preset, day = 1, weekday = 1, interval = 1, mont
       throw new Error(`Unknown preset: ${preset}`)
   }
 }
+
+/**
+ * Rebuilds the form state from a stored rule, so the same form can edit it.
+ */
+export function scheduleFormFromRule(rule) {
+  const frequency = rule?.frequency || 'monthly'
+  const interval = Number(rule?.interval_count) || 1
+  const day = String(rule?.day_of_month ?? 1)
+  const weekday = String(rule?.weekday ?? 1)
+  const month = String(rule?.month_of_year ?? 1)
+  const lastDay = rule?.last_day === 1 || rule?.last_day === true
+
+  if (frequency === 'daily') return { preset: 'every_n_days', interval, day, weekday, month }
+  if (frequency === 'weekly') return { preset: 'weekly', interval, day, weekday, month }
+  if (frequency === 'yearly') return { preset: 'yearly', interval, day, weekday, month }
+
+  if (interval > 1) return { preset: 'every_n_months', interval, day, weekday, month }
+  return { preset: lastDay ? 'last_day' : 'month_day', interval, day, weekday, month }
+}

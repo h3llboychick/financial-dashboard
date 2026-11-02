@@ -103,6 +103,7 @@ export function dueOccurrences({ rule, after = null, until, limit = 12 }) {
   const dates = []
   for (const candidate of candidates(rule)) {
     if (candidate > until) break
+    if (rule.end_date && candidate > rule.end_date) break
     if (candidate < rule.start_date) continue
     if (after !== null && candidate <= after) continue
     dates.push(candidate)

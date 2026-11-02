@@ -3,11 +3,10 @@ import {
   createRecurringRule,
   deleteRecurringRule,
   getRecurringRules,
-  runRecurring,
   updateRecurringRule,
 } from '../../api.js'
 import { useCurrency } from '../../contexts/CurrencyContext.jsx'
-import { MONTHS, PRESETS, WEEKDAYS, buildSchedule } from './recurringSchedule.js'
+import { MONTHS, PRESETS, WEEKDAYS, buildSchedule, scheduleFormFromRule } from './recurringSchedule.js'
 
 function todayIso() {
   const now = new Date()
@@ -15,17 +14,23 @@ function todayIso() {
   return local.toISOString().slice(0, 10)
 }
 
+const labelCls = 'text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500'
 const fieldCls = 'px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+const fullFieldCls = `${fieldCls} w-full`
 
 export default function Recurring({ ledgers, wallets, categories, onDataChange }) {
   const { format } = useCurrency()
   const [rules, setRules] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [showForm, setShowForm] = useState(false)
-  const [running, setRunning] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [editingId, setEditingId] = useState(null)
 
   const fiatWallets = useMemo(() => (wallets ?? []).filter(wallet => wallet.type === 'fiat'), [wallets])
+  const orderedRules = useMemo(
+    () => [...rules].sort((left, right) => (left.next_occurrence ?? '9999').localeCompare(right.next_occurrence ?? '9999')),
+    [rules],
+  )
 
   const loadRules = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true)
@@ -47,19 +52,6 @@ export default function Recurring({ ledgers, wallets, categories, onDataChange }
     await loadRules({ silent: true })
     onDataChange?.()
   }, [loadRules, onDataChange])
-
-  async function handleRunNow() {
-    setRunning(true)
-    setError(null)
-    try {
-      await runRecurring()
-      await refresh()
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setRunning(false)
-    }
-  }
 
   async function handleToggle(rule) {
     setError(null)
@@ -98,39 +90,32 @@ export default function Recurring({ ledgers, wallets, categories, onDataChange }
             Entries appear automatically on the schedule you set, both income and spending.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        {!creating && (
           <button
-            onClick={handleRunNow}
-            disabled={running}
-            className="px-4 py-2 text-sm border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
-          >
-            {running ? 'Running…' : 'Run now'}
-          </button>
-          <button
-            onClick={() => setShowForm(v => !v)}
+            onClick={() => { setCreating(true); setEditingId(null) }}
             className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
-            {showForm ? 'Cancel' : '+ Add rule'}
+            + Add rule
           </button>
-        </div>
+        )}
       </div>
 
       {error && <p className="text-sm text-red-500">{error}</p>}
 
-      {showForm && (
+      {creating && (
         <RecurringForm
           ledgers={ledgers}
           wallets={fiatWallets}
           categories={categories}
-          onCreated={async () => {
-            setShowForm(false)
+          onSaved={async () => {
+            setCreating(false)
             await refresh()
           }}
-          onCancel={() => setShowForm(false)}
+          onCancel={() => setCreating(false)}
         />
       )}
 
-      {rules.length === 0 && !showForm && (
+      {rules.length === 0 && !creating && (
         <div className="text-center py-16 text-gray-400 dark:text-gray-500">
           <p className="text-4xl mb-3">🔁</p>
           <p>No recurring payments yet. Add one for your scholarship or a subscription.</p>
@@ -139,41 +124,68 @@ export default function Recurring({ ledgers, wallets, categories, onDataChange }
 
       {rules.length > 0 && (
         <ul className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
-          {rules.map(rule => (
-            <li key={rule.id} className="flex items-start justify-between gap-3 px-4 py-3">
-              <div className="min-w-0">
-                <p className={`text-sm font-medium truncate ${rule.active ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500 line-through'}`}>
-                  {rule.name}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {rule.ledger_name} · {rule.wallet_name} · {rule.category_name}
-                </p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
-                  {rule.schedule}
-                  {rule.next_occurrence ? ` · next ${rule.next_occurrence}` : ''}
-                  {rule.last_generated_on ? ` · last ${rule.last_generated_on}` : ''}
-                </p>
-              </div>
-              <div className="flex items-center gap-3 flex-shrink-0">
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {format(rule.amount)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleToggle(rule)}
-                  className="text-xs text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
-                >
-                  {rule.active ? 'Pause' : 'Resume'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(rule)}
-                  aria-label={`Delete rule ${rule.name}`}
-                  className="text-gray-400 hover:text-red-500 transition-colors"
-                >
-                  ×
-                </button>
-              </div>
+          {orderedRules.map(rule => (
+            <li key={rule.id} className="px-4 py-3">
+              {editingId === rule.id ? (
+                <RecurringForm
+                  rule={rule}
+                  ledgers={ledgers}
+                  wallets={fiatWallets}
+                  categories={categories}
+                  onSaved={async () => {
+                    setEditingId(null)
+                    await refresh()
+                  }}
+                  onCancel={() => setEditingId(null)}
+                />
+              ) : (
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className={`text-sm font-medium truncate ${rule.active ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500 line-through'}`}>
+                      {rule.name}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {rule.ledger_name} · {rule.wallet_name} · {rule.category_name}
+                    </p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                      {rule.schedule}
+                      {rule.next_occurrence ? ` · next ${rule.next_occurrence}` : ''}
+                      {rule.end_date ? ` · ends ${rule.end_date}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className={`text-sm font-medium ${rule.ledger_type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100'}`}>
+                      {rule.ledger_type === 'income' ? '+' : rule.ledger_type === 'expense' ? '−' : ''}{format(rule.amount)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => { setEditingId(rule.id); setCreating(false) }}
+                      aria-label={`Edit rule ${rule.name}`}
+                      className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggle(rule)}
+                      className="text-xs text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+                    >
+                      {rule.active ? 'Pause' : 'Resume'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(rule)}
+                      aria-label={`Delete rule ${rule.name}`}
+                      className="text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -182,19 +194,22 @@ export default function Recurring({ ledgers, wallets, categories, onDataChange }
   )
 }
 
-function RecurringForm({ ledgers, wallets, categories, onCreated, onCancel }) {
-  const [name, setName] = useState('')
-  const [ledgerId, setLedgerId] = useState(ledgers[0]?.id ?? '')
-  const [walletId, setWalletId] = useState(wallets[0]?.id ?? '')
-  const [categoryId, setCategoryId] = useState('')
-  const [amount, setAmount] = useState('')
-  const [preset, setPreset] = useState('last_day')
-  const [day, setDay] = useState('1')
-  const [weekday, setWeekday] = useState('1')
-  const [interval, setIntervalCount] = useState('2')
-  const [month, setMonth] = useState(String(new Date().getMonth() + 1))
-  const [startDate, setStartDate] = useState(todayIso)
-  const [note, setNote] = useState('')
+function RecurringForm({ rule = null, ledgers, wallets, categories, onSaved, onCancel }) {
+  const initial = useMemo(() => scheduleFormFromRule(rule ?? {}), [rule])
+
+  const [name, setName] = useState(rule?.name ?? '')
+  const [ledgerId, setLedgerId] = useState(rule?.ledger_id ?? ledgers[0]?.id ?? '')
+  const [walletId, setWalletId] = useState(rule?.wallet_id ?? wallets[0]?.id ?? '')
+  const [categoryId, setCategoryId] = useState(rule?.category_id ?? '')
+  const [amount, setAmount] = useState(rule ? String(rule.amount) : '')
+  const [preset, setPreset] = useState(initial.preset)
+  const [day, setDay] = useState(initial.day)
+  const [weekday, setWeekday] = useState(initial.weekday)
+  const [interval, setIntervalCount] = useState(String(initial.interval))
+  const [month, setMonth] = useState(initial.month)
+  const [startDate, setStartDate] = useState(rule?.start_date ?? todayIso)
+  const [endDate, setEndDate] = useState(rule?.end_date ?? '')
+  const [note, setNote] = useState(rule?.note ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -209,6 +224,7 @@ function RecurringForm({ ledgers, wallets, categories, onCreated, onCancel }) {
     }
   }, [ledgerCategories, categoryId])
 
+  const wallet = wallets.find(item => Number(item.id) === Number(walletId))
   const needsDay = preset === 'month_day' || preset === 'every_n_months' || preset === 'yearly'
   const needsInterval = preset === 'every_n_months' || preset === 'weekly' || preset === 'every_n_days'
   const parsedAmount = parseFloat(amount)
@@ -228,7 +244,7 @@ function RecurringForm({ ledgers, wallets, categories, onCreated, onCancel }) {
     setSaving(true)
     setError(null)
     try {
-      await createRecurringRule({
+      const payload = {
         ...buildSchedule({ preset, day, weekday, interval, month }),
         name: name.trim(),
         ledger_id: Number(ledgerId),
@@ -236,9 +252,12 @@ function RecurringForm({ ledgers, wallets, categories, onCreated, onCancel }) {
         category_id: Number(categoryId),
         amount: parsedAmount,
         start_date: startDate,
+        end_date: endDate || null,
         note: note.trim(),
-      })
-      await onCreated()
+      }
+      if (rule) await updateRecurringRule(rule.id, payload)
+      else await createRecurringRule(payload)
+      await onSaved()
     } catch (err) {
       setError(err.message)
     } finally {
@@ -249,115 +268,143 @@ function RecurringForm({ ledgers, wallets, categories, onCreated, onCancel }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 flex flex-col gap-3"
+      className={rule
+        ? 'flex flex-col gap-4'
+        : 'bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-5 flex flex-col gap-4'}
     >
-      <h3 className="font-semibold text-gray-900 dark:text-gray-100">New recurring payment</h3>
+      <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+        {rule ? `Edit ${rule.name}` : 'New recurring payment'}
+      </h3>
 
-      <label className="text-xs text-gray-500 dark:text-gray-400">Name</label>
-      <input type="text" value={name} onChange={e => setName(e.target.value)} className={fieldCls} required />
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_11rem] gap-3">
+        <label className="flex flex-col gap-1">
+          <span className={labelCls}>Name</span>
+          <input type="text" value={name} onChange={e => setName(e.target.value)} className={fullFieldCls} required />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={labelCls}>Amount{wallet ? ` (${wallet.currency})` : ''}</span>
+          <input type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} className={fullFieldCls} required />
+        </label>
+      </div>
 
-      <label className="text-xs text-gray-500 dark:text-gray-400">Ledger</label>
-      <select value={ledgerId} onChange={e => setLedgerId(e.target.value)} className={fieldCls}>
-        {ledgers.map(ledger => (
-          <option key={ledger.id} value={ledger.id}>{ledger.name} · {ledger.type}</option>
-        ))}
-      </select>
-
-      <label className="text-xs text-gray-500 dark:text-gray-400">Wallet</label>
-      <select value={walletId} onChange={e => setWalletId(e.target.value)} className={fieldCls}>
-        {wallets.map(wallet => (
-          <option key={wallet.id} value={wallet.id}>{wallet.name} · {wallet.currency}</option>
-        ))}
-      </select>
-
-      <label className="text-xs text-gray-500 dark:text-gray-400">Category</label>
-      <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className={fieldCls} disabled={ledgerCategories.length === 0}>
-        {ledgerCategories.length === 0 ? (
-          <option value="">This ledger has no categories yet</option>
-        ) : ledgerCategories.map(category => (
-          <option key={category.id} value={category.id}>{category.name}</option>
-        ))}
-      </select>
-
-      <label className="text-xs text-gray-500 dark:text-gray-400">Amount</label>
-      <input type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} className={fieldCls} required />
-
-      <label className="text-xs text-gray-500 dark:text-gray-400">Repeat</label>
-      <select value={preset} onChange={e => setPreset(e.target.value)} className={fieldCls}>
-        {PRESETS.map(option => (
-          <option key={option.id} value={option.id}>{option.label}</option>
-        ))}
-      </select>
-
-      {needsInterval && (
-        <>
-          <label className="text-xs text-gray-500 dark:text-gray-400">Every {intervalUnit}</label>
-          <input
-            type="number"
-            min="1"
-            max="365"
-            value={interval}
-            onChange={e => setIntervalCount(e.target.value)}
-            className={fieldCls}
-          />
-        </>
-      )}
-
-      {preset === 'weekly' && (
-        <>
-          <label className="text-xs text-gray-500 dark:text-gray-400">On</label>
-          <select value={weekday} onChange={e => setWeekday(e.target.value)} className={fieldCls}>
-            {WEEKDAYS.map((label, index) => (
-              <option key={label} value={String(index)}>{label}</option>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <label className="flex flex-col gap-1">
+          <span className={labelCls}>Ledger</span>
+          <select value={ledgerId} onChange={e => setLedgerId(e.target.value)} className={fullFieldCls}>
+            {ledgers.map(ledger => (
+              <option key={ledger.id} value={ledger.id}>{ledger.name} · {ledger.type}</option>
             ))}
           </select>
-        </>
-      )}
-
-      {preset === 'yearly' && (
-        <>
-          <label className="text-xs text-gray-500 dark:text-gray-400">Month</label>
-          <select value={month} onChange={e => setMonth(e.target.value)} className={fieldCls}>
-            {MONTHS.map((label, index) => (
-              <option key={label} value={String(index + 1)}>{label}</option>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={labelCls}>Wallet</span>
+          <select value={walletId} onChange={e => setWalletId(e.target.value)} className={fullFieldCls}>
+            {wallets.map(item => (
+              <option key={item.id} value={item.id}>{item.name} ({item.currency})</option>
             ))}
           </select>
-        </>
-      )}
-
-      {needsDay && (
-        <>
-          <label className="text-xs text-gray-500 dark:text-gray-400">Day of month</label>
-          <select value={day} onChange={e => setDay(e.target.value)} className={fieldCls}>
-            {Array.from({ length: 31 }, (_, index) => index + 1).map(value => (
-              <option key={value} value={String(value)}>{value}</option>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={labelCls}>Category</span>
+          <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className={fullFieldCls} disabled={ledgerCategories.length === 0}>
+            {ledgerCategories.length === 0 ? (
+              <option value="">No categories in this ledger</option>
+            ) : ledgerCategories.map(category => (
+              <option key={category.id} value={category.id}>{category.name}</option>
             ))}
           </select>
-        </>
-      )}
+        </label>
+      </div>
 
-      <p className="text-xs text-gray-400 dark:text-gray-500">
-        A day past the end of a short month lands on that month&apos;s last day.
-      </p>
+      <div className="flex flex-col gap-1">
+        <span className={labelCls}>Repeat</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <select value={preset} onChange={e => setPreset(e.target.value)} className={`${fieldCls} w-auto`}>
+            {PRESETS.map(option => (
+              <option key={option.id} value={option.id}>{option.label}</option>
+            ))}
+          </select>
 
-      <label className="text-xs text-gray-500 dark:text-gray-400">Start date</label>
-      <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={fieldCls} required />
+          {needsInterval && (
+            <>
+              <span className="text-sm text-gray-500 dark:text-gray-400">every</span>
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={interval}
+                onChange={e => setIntervalCount(e.target.value)}
+                aria-label={`Interval in ${intervalUnit}`}
+                className={`${fieldCls} w-20`}
+              />
+              <span className="text-sm text-gray-500 dark:text-gray-400">{intervalUnit}</span>
+            </>
+          )}
 
-      <label className="text-xs text-gray-500 dark:text-gray-400">Note</label>
-      <input type="text" value={note} onChange={e => setNote(e.target.value)} placeholder="Optional" className={fieldCls} />
+          {preset === 'weekly' && (
+            <>
+              <span className="text-sm text-gray-500 dark:text-gray-400">on</span>
+              <select value={weekday} onChange={e => setWeekday(e.target.value)} className={`${fieldCls} w-auto`}>
+                {WEEKDAYS.map((label, index) => (
+                  <option key={label} value={String(index)}>{label}</option>
+                ))}
+              </select>
+            </>
+          )}
+
+          {preset === 'yearly' && (
+            <>
+              <span className="text-sm text-gray-500 dark:text-gray-400">on</span>
+              <select value={month} onChange={e => setMonth(e.target.value)} className={`${fieldCls} w-auto`}>
+                {MONTHS.map((label, index) => (
+                  <option key={label} value={String(index + 1)}>{label}</option>
+                ))}
+              </select>
+            </>
+          )}
+
+          {needsDay && (
+            <>
+              {preset !== 'yearly' && (
+                <span className="text-sm text-gray-500 dark:text-gray-400">on day</span>
+              )}
+              <select value={day} onChange={e => setDay(e.target.value)} className={`${fieldCls} w-20`}>
+                {Array.from({ length: 31 }, (_, index) => index + 1).map(value => (
+                  <option key={value} value={String(value)}>{value}</option>
+                ))}
+              </select>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-[9rem_9rem_1fr] gap-3">
+        <label className="flex flex-col gap-1">
+          <span className={labelCls}>Starts</span>
+          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={fullFieldCls} required />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={labelCls}>Ends (optional)</span>
+          <input type="date" value={endDate} min={startDate} onChange={e => setEndDate(e.target.value)} className={fullFieldCls} />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={labelCls}>Note</span>
+          <input type="text" value={note} onChange={e => setNote(e.target.value)} placeholder="Optional" className={fullFieldCls} />
+        </label>
+      </div>
 
       {error && <p className="text-sm text-red-500">{error}</p>}
 
-      <div className="flex gap-2">
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+          Cancel
+        </button>
         <button
           type="submit"
           disabled={saving || !canSubmit}
-          className="flex-1 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 transition-colors"
+          className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 transition-colors"
         >
-          {saving ? 'Creating…' : 'Create rule'}
-        </button>
-        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-          Cancel
+          {saving ? 'Saving…' : rule ? 'Save changes' : 'Create rule'}
         </button>
       </div>
     </form>

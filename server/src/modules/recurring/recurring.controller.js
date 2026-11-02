@@ -12,21 +12,33 @@ import {
   positiveId,
   MAX_NOTE_LENGTH,
 } from '../../shared/validation/financialInput.js'
-import { nextOccurrenceAfter, scheduleLabel } from './schedule.js'
+import { dueOccurrences, nextOccurrenceAfter, scheduleLabel } from './schedule.js'
 
 const FREQUENCIES = new Set(['daily', 'weekly', 'monthly', 'yearly'])
 const USES_MONTH_DAY = new Set(['monthly', 'yearly'])
 
-function decorate(rule) {
-  if (!rule) return rule
-  return {
-    ...rule,
-    schedule: scheduleLabel(rule),
-    next_occurrence: nextOccurrenceAfter(rule, rule.last_generated_on ?? null),
-  }
+function isoDaysBefore(now, days) {
+  const base = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - days * 86400000
+  return new Date(base).toISOString().slice(0, 10)
 }
 
-export function makeRecurringController({ recurring_repo, ledger_repo, wallet_repo, category_repo, recurring_service }) {
+export function makeRecurringController({
+  recurring_repo, ledger_repo, wallet_repo, category_repo, recurring_service, today = () => new Date(),
+}) {
+  /** Adds the readable schedule, the coming date and how many occurrences are behind. */
+  function decorate(rule) {
+    if (!rule) return rule
+    const yesterday = isoDaysBefore(today(), 1)
+    const after = rule.last_generated_on ?? null
+    const cursor = after && after > yesterday ? after : yesterday
+    return {
+      ...rule,
+      schedule: scheduleLabel(rule),
+      next_occurrence: nextOccurrenceAfter(rule, cursor),
+      overdue: dueOccurrences({ rule, after, until: yesterday }).length,
+    }
+  }
+
   function validateRuleInput(body, user_id, { partial = false, stored = null } = {}) {
     const input = objectInput(body)
     const has = field => Object.hasOwn(input, field)
@@ -39,6 +51,9 @@ export function makeRecurringController({ recurring_repo, ledger_repo, wallet_re
     if (!partial || has('category_id')) data.category_id = positiveId(input.category_id, 'category_id')
     if (!partial || has('amount')) data.amount = money(input.amount, 'amount', { positive: true })
     if (!partial || has('start_date')) data.start_date = dateInput(input.start_date)
+    if (has('end_date')) {
+      data.end_date = input.end_date === null ? null : dateInput(input.end_date)
+    }
     if (has('note')) data.note = boundedString(input.note, 'note', { max: MAX_NOTE_LENGTH })
     if (has('active')) data.active = booleanInput(input.active, 'active') ? 1 : 0
 
@@ -84,6 +99,12 @@ export function makeRecurringController({ recurring_repo, ledger_repo, wallet_re
         return { status: 400, error: 'month_of_year is required for yearly rules' }
       }
       if (has('month_of_year') || !partial) data.month_of_year = monthOfYear
+    }
+
+    const start_date = data.start_date ?? current.start_date
+    const end_date = data.end_date ?? current.end_date
+    if (data.end_date && start_date && data.end_date < start_date) {
+      return { status: 400, error: 'end_date must be on or after start_date' }
     }
 
     const ledger_id = data.ledger_id ?? current.ledger_id
@@ -140,10 +161,14 @@ export function makeRecurringController({ recurring_repo, ledger_repo, wallet_re
     const editable = [
       'name', 'ledger_id', 'wallet_id', 'category_id', 'amount', 'currency', 'note',
       'frequency', 'interval_count', 'day_of_month', 'last_day', 'weekday', 'month_of_year',
-      'start_date', 'active',
+      'start_date', 'end_date', 'active',
     ]
     for (const field of editable) {
       if (Object.hasOwn(validated.data, field)) changes[field] = validated.data[field]
+    }
+    if (Object.hasOwn(validated.data, 'end_date') && validated.data.end_date === null) {
+      changes.clear_end_date = true
+      delete changes.end_date
     }
 
     recurring_repo.update(changes)
@@ -160,10 +185,5 @@ export function makeRecurringController({ recurring_repo, ledger_repo, wallet_re
     res.status(204).end()
   }
 
-  function run(req, res) {
-    const user_id = req.user.user_id
-    res.json(recurring_service.run_due({ user_id }))
-  }
-
-  return { list, create, update, remove, run }
+  return { list, create, update, remove }
 }

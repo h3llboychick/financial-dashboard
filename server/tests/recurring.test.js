@@ -69,6 +69,7 @@ db.exec(`
     weekday INTEGER,
     month_of_year INTEGER,
     start_date TEXT NOT NULL,
+    end_date TEXT,
     active INTEGER NOT NULL DEFAULT 1,
     last_generated_on TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -99,7 +100,7 @@ function buildApp({ today = () => new Date('2026-06-15T12:00:00.000Z'), token = 
     next()
   })
   app.use('/internal/recurring', makeRecurringInternalRouter({ recurring_service, token }))
-  app.use('/recurring', makeRecurringRouter({ ...repos, recurring_service }))
+  app.use('/recurring', makeRecurringRouter({ ...repos, recurring_service, today }))
   app.use((err, req, res, next) => res.status(err.status || 500).json({ error: err.message }))
   return app
 }
@@ -246,15 +247,13 @@ describe('materialising due occurrences', () => {
     expect(generatedEntries().some(entry => entry.date === '2026-06-28')).toBe(false)
   })
 
-  test('is idempotent across repeated runs', async () => {
+  test('is idempotent across repeated reads', async () => {
     const app = buildApp()
     await request(app).post('/recurring').set('x-user-id', '1').send(rule)
 
-    const first = await request(app).post('/recurring/run').set('x-user-id', '1')
-    const second = await request(app).post('/recurring/run').set('x-user-id', '1')
+    await request(app).get('/recurring').set('x-user-id', '1')
+    await request(app).get('/recurring').set('x-user-id', '1')
 
-    expect(first.body.entries_created).toBe(5)
-    expect(second.body.entries_created).toBe(0)
     expect(generatedEntries()).toHaveLength(5)
   })
 
@@ -290,7 +289,7 @@ describe('materialising due occurrences', () => {
     const app = buildApp()
     await request(app).post('/recurring').set('x-user-id', '1').send(rule)
 
-    await request(app).post('/recurring/run').set('x-user-id', '1')
+    await request(app).get('/recurring').set('x-user-id', '1')
 
     const [entry] = generatedEntries()
     expect(entry).toMatchObject({
@@ -310,9 +309,9 @@ describe('materialising due occurrences', () => {
       .patch(`/recurring/${created.body.id}`)
       .set('x-user-id', '1')
       .send({ active: false })
-    const response = await request(app).post('/recurring/run').set('x-user-id', '1')
+    await request(app).get('/recurring').set('x-user-id', '1')
 
-    expect(response.body.entries_created).toBe(0)
+    expect(generatedEntries()).toHaveLength(0)
   })
 })
 
@@ -335,7 +334,7 @@ describe('last-day-of-month rules', () => {
       .set('x-user-id', '1')
       .send({ name: 'Scholarship', ledger_id: 1, wallet_id: 1, category_id: 1, amount: 500, last_day: true, start_date: '2026-01-01' })
 
-    await request(app).post('/recurring/run').set('x-user-id', '1')
+    await request(app).get('/recurring').set('x-user-id', '1')
 
     expect(generatedEntries().map(entry => entry.date)).toEqual([
       '2026-01-31',
@@ -354,7 +353,7 @@ describe('last-day-of-month rules', () => {
       .patch(`/recurring/${created.body.id}`)
       .set('x-user-id', '1')
       .send({ last_day: true })
-    await request(app).post('/recurring/run').set('x-user-id', '1')
+    await request(app).get('/recurring').set('x-user-id', '1')
 
     expect(updated.body.last_day).toBe(1)
     expect(generatedEntries().map(entry => entry.date)).toEqual(['2026-01-31'])
@@ -369,7 +368,7 @@ describe('cadences', () => {
       .set('x-user-id', '1')
       .send({ name: 'Cleaner', ledger_id: 2, wallet_id: 1, category_id: 2, amount: 40, frequency: 'weekly', weekday: 1, start_date: '2026-01-05' })
 
-    await request(app).post('/recurring/run').set('x-user-id', '1')
+    await request(app).get('/recurring').set('x-user-id', '1')
 
     expect(generatedEntries().map(entry => entry.date)).toEqual([
       '2026-01-05',
@@ -386,7 +385,7 @@ describe('cadences', () => {
       .set('x-user-id', '1')
       .send({ name: 'Gym', ledger_id: 2, wallet_id: 1, category_id: 2, amount: 3, frequency: 'daily', interval_count: 14, start_date: '2026-01-01' })
 
-    await request(app).post('/recurring/run').set('x-user-id', '1')
+    await request(app).get('/recurring').set('x-user-id', '1')
 
     expect(generatedEntries().map(entry => entry.date)).toEqual([
       '2026-01-01',
@@ -402,7 +401,7 @@ describe('cadences', () => {
       .set('x-user-id', '1')
       .send({ name: 'Insurance', ledger_id: 2, wallet_id: 1, category_id: 2, amount: 120, frequency: 'yearly', month_of_year: 3, day_of_month: 15, start_date: '2026-01-01' })
 
-    await request(app).post('/recurring/run').set('x-user-id', '1')
+    await request(app).get('/recurring').set('x-user-id', '1')
 
     expect(generatedEntries().map(entry => entry.date)).toEqual(['2026-03-15', '2027-03-15'])
   })
@@ -452,11 +451,63 @@ describe('cadences', () => {
   })
 })
 
+describe('end date', () => {
+  test('stops creating entries after the end date', async () => {
+    const app = buildApp({ today: () => new Date('2026-06-15T12:00:00.000Z') })
+    await request(app)
+      .post('/recurring')
+      .set('x-user-id', '1')
+      .send({ ...rule, start_date: '2026-01-01', end_date: '2026-03-31' })
+
+    await request(app).get('/recurring').set('x-user-id', '1')
+
+    expect(generatedEntries().map(entry => entry.date)).toEqual(['2026-01-28', '2026-02-28', '2026-03-28'])
+  })
+
+  test('returns the end date in the rule payload', async () => {
+    const app = buildApp()
+    const response = await request(app)
+      .post('/recurring')
+      .set('x-user-id', '1')
+      .send({ ...rule, end_date: '2026-12-31' })
+
+    expect(response.body.end_date).toBe('2026-12-31')
+    expect(response.body.next_occurrence).toBe('2026-06-28')
+  })
+
+  test('refuses an end date before the start date', async () => {
+    const app = buildApp()
+    const response = await request(app)
+      .post('/recurring')
+      .set('x-user-id', '1')
+      .send({ ...rule, start_date: '2026-05-01', end_date: '2026-04-01' })
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toMatch(/end_date/i)
+  })
+
+  test('clears the end date when null is sent', async () => {
+    const app = buildApp()
+    const created = await request(app)
+      .post('/recurring')
+      .set('x-user-id', '1')
+      .send({ ...rule, end_date: '2026-12-31' })
+
+    const updated = await request(app)
+      .patch(`/recurring/${created.body.id}`)
+      .set('x-user-id', '1')
+      .send({ end_date: null })
+
+    expect(updated.status).toBe(200)
+    expect(updated.body.end_date).toBeNull()
+  })
+})
+
 describe('DELETE /recurring/:id', () => {
   test('keeps entries the rule already created', async () => {
     const app = buildApp()
     const created = await request(app).post('/recurring').set('x-user-id', '1').send(rule)
-    await request(app).post('/recurring/run').set('x-user-id', '1')
+    await request(app).get('/recurring').set('x-user-id', '1')
 
     const response = await request(app).delete(`/recurring/${created.body.id}`).set('x-user-id', '1')
 
