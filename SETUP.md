@@ -48,6 +48,21 @@ TELEGRAM_BOT_TOKEN=your_bot_token_from_botfather
 TELEGRAM_BOT_NAME=your_bot_username_without_@
 ```
 
+Recurring payments run through an hourly systemd timer that calls an internal endpoint on the API. Set the shared token in `server/.env` first:
+
+```env
+RECURRING_RUN_TOKEN=generate-with-openssl-rand-hex-32
+```
+
+Then install the timer once on the server, from the deployed app directory:
+
+```bash
+cd /path/to/DEPLOY_ROOT/app
+sudo bash deploy/install-recurring-timer.sh
+```
+
+The endpoint is mounted outside `/api` and accepts only that token, so user sessions never apply to it. Opening the app also catches up on missed occurrences, so a stopped timer cannot lose an entry.
+
 Optional client environment variables live in `client/.env`. Copy the example if you need to expose the Vite dev server through a tunnel:
 
 ```bash

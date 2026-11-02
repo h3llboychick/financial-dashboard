@@ -18,6 +18,10 @@ import { makeExchangeRatesRouter } from './modules/exchangeRates/exchangeRates.r
 import { makeExchangesRouter } from './modules/exchanges/exchanges.routes.js'
 import { makeLedgersRouter } from './modules/ledgers/ledgers.routes.js'
 import { makeLedgerRepo } from './modules/ledgers/ledgers.repository.js'
+import { makeRecurringRepo } from './modules/recurring/recurring.repository.js'
+import { makeRecurringRouter } from './modules/recurring/recurring.routes.js'
+import { makeRecurringInternalRouter } from './modules/recurring/internal.routes.js'
+import { makeRecurringService } from './modules/recurring/recurring.service.js'
 import { makeTransferRepo } from './modules/transfers/transfers.repository.js'
 import { makeTransfersRouter } from './modules/transfers/transfers.routes.js'
 import { makeWalletsRouter } from './modules/wallets/wallets.routes.js'
@@ -47,11 +51,19 @@ export function createApp() {
     entry_repo: makeEntryRepo(db),
     wallet_repo: makeWalletRepo(db),
     transfer_repo: makeTransferRepo(db),
+    recurring_repo: makeRecurringRepo(db),
   }
 
   const services = {
     userDefaultsService: makeUserDefaultsService(db)
   }
+
+  const recurring_service = makeRecurringService({
+    db,
+    recurring_repo: repos.recurring_repo,
+    entry_repo: repos.entry_repo,
+  })
+  repos.recurring_service = recurring_service
   const isDev = process.env.NODE_ENV === 'dev'
   const isProduction = process.env.NODE_ENV === 'production'
   const devUserId = isDev ? getDevAuthUserId() : null
@@ -84,6 +96,8 @@ export function createApp() {
       res.status(503).json({ status: 'unavailable' })
     }
   })
+  app.use('/internal/recurring', makeRecurringInternalRouter({ recurring_service, logger }))
+
   app.use('/api', isDev ? requireAuthDev : requireAuth)
 
   app.use('/api/auth', makeAuthRouter(services))
@@ -92,6 +106,7 @@ export function createApp() {
   app.use('/api/categories', makeCategoriesRouter(repos))
   app.use('/api/wallets', makeWalletsRouter(repos))
   app.use('/api/transfers', makeTransfersRouter(repos))
+  app.use('/api/recurring', makeRecurringRouter(repos))
   app.use('/api/exchange-rates', makeExchangeRatesRouter())
   app.use('/api/exchanges', makeExchangesRouter())
   app.get('/api/config', (req, res) => {

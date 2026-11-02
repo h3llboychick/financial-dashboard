@@ -45,6 +45,12 @@ export const deleteWallet            = (id)       => request(`/wallets/${id}`, {
 export const saveWalletCredentials   = (id, data) => request(`/wallets/${id}/credentials`, { method: 'PUT', body: JSON.stringify(data) })
 export const getWalletLiveBalance    = (id)       => request(`/wallets/${id}/live-balance`)
 
+export const getRecurringRules    = ()     => request('/recurring')
+export const createRecurringRule  = (data) => request('/recurring', { method: 'POST', body: JSON.stringify(data) })
+export const updateRecurringRule  = (id, data) => request(`/recurring/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+export const deleteRecurringRule  = (id)   => request(`/recurring/${id}`, { method: 'DELETE' })
+export const runRecurring         = ()     => request('/recurring/run', { method: 'POST' })
+
 export const getTransfers   = ()     => request('/transfers')
 export const createTransfer = (data) => request('/transfers', { method: 'POST', body: JSON.stringify(data) })
 export const deleteTransfer = (id)   => request(`/transfers/${id}`, { method: 'DELETE' })

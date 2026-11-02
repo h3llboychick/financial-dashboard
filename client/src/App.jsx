@@ -6,10 +6,11 @@ import LoginPage from './components/LoginPage.jsx'
 import Dashboard from './components/dashboard/Dashboard.jsx'
 import EntryForm from './components/EntryForm.jsx'
 import EntryList from './components/EntryList.jsx'
+import Recurring from './components/recurring/Recurring.jsx'
 import Settings from './components/settings/Settings.jsx'
 import Wallets from './components/wallets/Wallets.jsx'
 
-const TABS = ['Dashboard', 'Add Entry', 'History', 'Wallets', 'Settings']
+const TABS = ['Dashboard', 'Add Entry', 'History', 'Wallets', 'Recurring', 'Settings']
 
 function SunIcon() {
   return (
@@ -155,6 +156,14 @@ export default function App() {
             )}
             {activeTab === 'Wallets' && (
               <Wallets onDataChange={loadData}/>
+            )}
+            {activeTab === 'Recurring' && (
+              <Recurring
+                ledgers={ledgers}
+                wallets={wallets}
+                categories={categories}
+                onDataChange={loadData}
+              />
             )}
           </>
         )}

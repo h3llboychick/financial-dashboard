@@ -82,6 +82,17 @@ export function dateInput(value) {
   return value
 }
 
+export function dayOfMonthInput(value, field = 'day_of_month') {
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 31) reject(`${field} must be an integer between 1 and 31`)
+  return parsed
+}
+
+export function booleanInput(value, field) {
+  if (typeof value !== 'boolean') reject(`${field} must be true or false`)
+  return value
+}
+
 export function entryInput(value) {
   const body = objectInput(value)
   return {

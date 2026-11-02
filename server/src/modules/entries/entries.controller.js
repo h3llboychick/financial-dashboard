@@ -1,6 +1,6 @@
 import { entryInput, positiveId } from '../../shared/validation/financialInput.js'
 
-export function makeEntriesController({ ledger_repo, entry_repo, wallet_repo, category_repo }) {
+export function makeEntriesController({ ledger_repo, entry_repo, wallet_repo, category_repo, recurring_service }) {
     function validateEntryInput(body, user_id) {
         const input = entryInput(body)
         const ledger = ledger_repo.find_by_id({ ledger_id: input.ledger_id, user_id })
@@ -15,8 +15,11 @@ export function makeEntriesController({ ledger_repo, entry_repo, wallet_repo, ca
     }
 
     function list(req, res) {
-        const user_id = req.user.user_id
-        if (Object.hasOwn(req.query, 'ledger_id')) {
+      const user_id = req.user.user_id
+      // Cheap safety net for the hourly timer: catching up on read means a missed
+      // tick never loses an occurrence.
+      recurring_service?.run_due({ user_id })
+      if (Object.hasOwn(req.query, 'ledger_id')) {
             const ledger_id = positiveId(req.query.ledger_id, 'ledger_id')
             if (!ledger_repo.find_by_id({ ledger_id, user_id })) return res.status(404).json({ error: 'Ledger not found' })
             return res.json(entry_repo.list_for_ledger({ ledger_id, user_id }))

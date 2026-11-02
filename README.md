@@ -18,6 +18,7 @@ Instead of keeping expenses, balances, and investment-related notes spread acros
 - Supports multiple currencies for entries and dashboard reporting.
 - Tracks fiat wallets with baseline balances and entry-based balance updates.
 - Moves money between wallets as transfers, without creating ledger entries.
+- Creates recurring entries, such as a scholarship or a subscription, on a monthly schedule.
 - Supports exchange wallets, encrypted API credentials, and live crypto exchange balance checks.
 - Uses Telegram login for authentication.
 - Includes a responsive dark mode interface.
