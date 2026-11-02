@@ -50,7 +50,7 @@ export function makeRecurringRouter(repos) {
      *         application/json:
      *           schema:
      *             type: object
-     *             required: [name, ledger_id, wallet_id, category_id, amount, day_of_month, start_date]
+     *             required: [name, ledger_id, wallet_id, category_id, amount, start_date]
      *             properties:
      *               name:
      *                 $ref: '#/components/schemas/FinancialName'
@@ -62,10 +62,33 @@ export function makeRecurringRouter(repos) {
      *                 $ref: '#/components/schemas/FinancialId'
      *               amount:
      *                 $ref: '#/components/schemas/FinancialAmount'
+     *               frequency:
+     *                 type: string
+     *                 enum: [daily, weekly, monthly, yearly]
+     *                 default: monthly
+     *               interval_count:
+     *                 type: integer
+     *                 minimum: 1
+     *                 maximum: 365
+     *                 default: 1
      *               day_of_month:
      *                 type: integer
      *                 minimum: 1
      *                 maximum: 31
+     *                 description: Required for monthly and yearly rules unless last_day is true.
+     *               last_day:
+     *                 type: boolean
+     *                 description: An alias for the final day of the month, whatever its length.
+     *               weekday:
+     *                 type: integer
+     *                 minimum: 0
+     *                 maximum: 6
+     *                 description: Required for weekly rules. 0 is Sunday.
+     *               month_of_year:
+     *                 type: integer
+     *                 minimum: 1
+     *                 maximum: 12
+     *                 description: Required for yearly rules.
      *               start_date:
      *                 type: string
      *                 example: '2026-09-01'

@@ -17,13 +17,7 @@ export function makeRecurringService({ db, recurring_repo, entry_repo, today = (
 
     const run = db.transaction(() => {
       for (const rule of rules) {
-        const dates = dueOccurrences({
-          dayOfMonth: rule.day_of_month,
-          startDate: rule.start_date,
-          after: rule.last_generated_on,
-          until,
-          limit,
-        })
+        const dates = dueOccurrences({ rule, after: rule.last_generated_on, until, limit })
         if (dates.length === 0) continue
 
         const claimed = recurring_repo.claim_until({

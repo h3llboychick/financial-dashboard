@@ -41,17 +41,28 @@ export function makeRecurringRepo(db) {
         .all(...parameters)
     },
 
-    create({ user_id, name, ledger_id, wallet_id, category_id, amount, currency, note = '', day_of_month, start_date }) {
+    create({
+      user_id, name, ledger_id, wallet_id, category_id, amount, currency, note = '',
+      frequency = 'monthly', interval_count = 1, day_of_month = 1, last_day = 0,
+      weekday = null, month_of_year = null, start_date,
+    }) {
       return db
         .prepare(
           `INSERT INTO recurring_rules (
-            user_id, name, ledger_id, wallet_id, category_id, amount, currency, note, day_of_month, start_date
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            user_id, name, ledger_id, wallet_id, category_id, amount, currency, note,
+            frequency, interval_count, day_of_month, last_day, weekday, month_of_year, start_date
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .run(user_id, name, ledger_id, wallet_id, category_id, amount, currency, note, day_of_month, start_date)
+        .run(
+          user_id, name, ledger_id, wallet_id, category_id, amount, currency, note,
+          frequency, interval_count, day_of_month, last_day, weekday, month_of_year, start_date,
+        )
     },
 
-    update({ rule_id, user_id, name, ledger_id, wallet_id, category_id, amount, currency, note, day_of_month, start_date, active }) {
+    update({
+      rule_id, user_id, name, ledger_id, wallet_id, category_id, amount, currency, note,
+      frequency, interval_count, day_of_month, last_day, weekday, month_of_year, start_date, active,
+    }) {
       return db
         .prepare(
           `UPDATE recurring_rules SET
@@ -62,7 +73,12 @@ export function makeRecurringRepo(db) {
             amount = COALESCE(?, amount),
             currency = COALESCE(?, currency),
             note = COALESCE(?, note),
+            frequency = COALESCE(?, frequency),
+            interval_count = COALESCE(?, interval_count),
             day_of_month = COALESCE(?, day_of_month),
+            last_day = COALESCE(?, last_day),
+            weekday = COALESCE(?, weekday),
+            month_of_year = COALESCE(?, month_of_year),
             start_date = COALESCE(?, start_date),
             active = COALESCE(?, active)
           WHERE id = ? AND user_id = ?`,
@@ -75,7 +91,12 @@ export function makeRecurringRepo(db) {
           amount ?? null,
           currency ?? null,
           note ?? null,
+          frequency ?? null,
+          interval_count ?? null,
           day_of_month ?? null,
+          last_day ?? null,
+          weekday ?? null,
+          month_of_year ?? null,
           start_date ?? null,
           active ?? null,
           rule_id,

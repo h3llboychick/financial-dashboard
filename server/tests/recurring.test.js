@@ -62,7 +62,12 @@ db.exec(`
     amount REAL NOT NULL,
     currency TEXT NOT NULL,
     note TEXT DEFAULT '',
-    day_of_month INTEGER NOT NULL CHECK(day_of_month BETWEEN 1 AND 31),
+    frequency TEXT NOT NULL DEFAULT 'monthly',
+    interval_count INTEGER NOT NULL DEFAULT 1,
+    day_of_month INTEGER NOT NULL DEFAULT 1 CHECK(day_of_month BETWEEN 1 AND 31),
+    last_day INTEGER NOT NULL DEFAULT 0,
+    weekday INTEGER,
+    month_of_year INTEGER,
     start_date TEXT NOT NULL,
     active INTEGER NOT NULL DEFAULT 1,
     last_generated_on TEXT,
@@ -308,6 +313,142 @@ describe('materialising due occurrences', () => {
     const response = await request(app).post('/recurring/run').set('x-user-id', '1')
 
     expect(response.body.entries_created).toBe(0)
+  })
+})
+
+describe('last-day-of-month rules', () => {
+  test('accepts a rule without day_of_month and stores 31', async () => {
+    const app = buildApp()
+    const response = await request(app)
+      .post('/recurring')
+      .set('x-user-id', '1')
+      .send({ name: 'Scholarship', ledger_id: 1, wallet_id: 1, category_id: 1, amount: 500, last_day: true, start_date: '2026-01-01' })
+
+    expect(response.status).toBe(201)
+    expect(response.body).toMatchObject({ last_day: 1, day_of_month: 31 })
+  })
+
+  test('creates the entry on the last day of every month, short ones included', async () => {
+    const app = buildApp({ today: () => new Date('2026-06-15T12:00:00.000Z') })
+    await request(app)
+      .post('/recurring')
+      .set('x-user-id', '1')
+      .send({ name: 'Scholarship', ledger_id: 1, wallet_id: 1, category_id: 1, amount: 500, last_day: true, start_date: '2026-01-01' })
+
+    await request(app).post('/recurring/run').set('x-user-id', '1')
+
+    expect(generatedEntries().map(entry => entry.date)).toEqual([
+      '2026-01-31',
+      '2026-02-28',
+      '2026-03-31',
+      '2026-04-30',
+      '2026-05-31',
+    ])
+  })
+
+  test('switches an existing rule to the last day', async () => {
+    const app = buildApp({ today: () => new Date('2026-02-01T12:00:00.000Z') })
+    const created = await request(app).post('/recurring').set('x-user-id', '1').send(rule)
+
+    const updated = await request(app)
+      .patch(`/recurring/${created.body.id}`)
+      .set('x-user-id', '1')
+      .send({ last_day: true })
+    await request(app).post('/recurring/run').set('x-user-id', '1')
+
+    expect(updated.body.last_day).toBe(1)
+    expect(generatedEntries().map(entry => entry.date)).toEqual(['2026-01-31'])
+  })
+})
+
+describe('cadences', () => {
+  test('creates an entry every week on the chosen weekday', async () => {
+    const app = buildApp({ today: () => new Date('2026-01-26T12:00:00.000Z') })
+    await request(app)
+      .post('/recurring')
+      .set('x-user-id', '1')
+      .send({ name: 'Cleaner', ledger_id: 2, wallet_id: 1, category_id: 2, amount: 40, frequency: 'weekly', weekday: 1, start_date: '2026-01-05' })
+
+    await request(app).post('/recurring/run').set('x-user-id', '1')
+
+    expect(generatedEntries().map(entry => entry.date)).toEqual([
+      '2026-01-05',
+      '2026-01-12',
+      '2026-01-19',
+      '2026-01-26',
+    ])
+  })
+
+  test('creates an entry every N days', async () => {
+    const app = buildApp({ today: () => new Date('2026-02-01T12:00:00.000Z') })
+    await request(app)
+      .post('/recurring')
+      .set('x-user-id', '1')
+      .send({ name: 'Gym', ledger_id: 2, wallet_id: 1, category_id: 2, amount: 3, frequency: 'daily', interval_count: 14, start_date: '2026-01-01' })
+
+    await request(app).post('/recurring/run').set('x-user-id', '1')
+
+    expect(generatedEntries().map(entry => entry.date)).toEqual([
+      '2026-01-01',
+      '2026-01-15',
+      '2026-01-29',
+    ])
+  })
+
+  test('creates one entry a year on the chosen date', async () => {
+    const app = buildApp({ today: () => new Date('2027-06-15T12:00:00.000Z') })
+    await request(app)
+      .post('/recurring')
+      .set('x-user-id', '1')
+      .send({ name: 'Insurance', ledger_id: 2, wallet_id: 1, category_id: 2, amount: 120, frequency: 'yearly', month_of_year: 3, day_of_month: 15, start_date: '2026-01-01' })
+
+    await request(app).post('/recurring/run').set('x-user-id', '1')
+
+    expect(generatedEntries().map(entry => entry.date)).toEqual(['2026-03-15', '2027-03-15'])
+  })
+
+  test('describes the schedule in the response', async () => {
+    const app = buildApp()
+    const response = await request(app)
+      .post('/recurring')
+      .set('x-user-id', '1')
+      .send({ name: 'Scholarship', ledger_id: 1, wallet_id: 1, category_id: 1, amount: 500, last_day: true, start_date: '2026-01-01' })
+
+    expect(response.body.schedule).toBe('Monthly on the last day')
+    expect(response.body.frequency).toBe('monthly')
+    expect(response.body.interval_count).toBe(1)
+  })
+
+  test('refuses weekly rules without a weekday', async () => {
+    const app = buildApp()
+    const response = await request(app)
+      .post('/recurring')
+      .set('x-user-id', '1')
+      .send({ name: 'Cleaner', ledger_id: 2, wallet_id: 1, category_id: 2, amount: 40, frequency: 'weekly', start_date: '2026-01-05' })
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toMatch(/weekday/i)
+  })
+
+  test('refuses yearly rules without a month', async () => {
+    const app = buildApp()
+    const response = await request(app)
+      .post('/recurring')
+      .set('x-user-id', '1')
+      .send({ name: 'Insurance', ledger_id: 2, wallet_id: 1, category_id: 2, amount: 120, frequency: 'yearly', day_of_month: 15, start_date: '2026-01-01' })
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toMatch(/month_of_year/i)
+  })
+
+  test('refuses an interval below one', async () => {
+    const app = buildApp()
+    const response = await request(app)
+      .post('/recurring')
+      .set('x-user-id', '1')
+      .send({ ...rule, interval_count: 0 })
+
+    expect(response.status).toBe(400)
   })
 })
 
