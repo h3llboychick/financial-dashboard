@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly check for due recurring payments
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=300
+Persistent=true
+Unit=financial-dashboard-recurring.service
+
+[Install]
+WantedBy=timers.target

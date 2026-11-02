@@ -1,0 +1,10 @@
+[Unit]
+Description=Materialise due recurring payments for financial-dashboard
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=@SERVICE_USER@
+WorkingDirectory=@APP_DIR@
+EnvironmentFile=@APP_DIR@/server/.env
+ExecStart=@NODE_BIN@ @APP_DIR@/deploy/recurring-run.mjs
