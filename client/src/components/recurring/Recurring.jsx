@@ -155,7 +155,7 @@ export default function Recurring({ ledgers, wallets, categories, onDataChange }
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
                     <span className={`text-sm font-medium ${rule.ledger_type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100'}`}>
-                      {rule.ledger_type === 'income' ? '+' : rule.ledger_type === 'expense' ? '−' : ''}{format(rule.amount)}
+                      {rule.ledger_type === 'income' ? '+' : rule.ledger_type === 'expense' ? '−' : ''}{format(rule.amount, rule.currency)}
                     </span>
                     <button
                       type="button"
