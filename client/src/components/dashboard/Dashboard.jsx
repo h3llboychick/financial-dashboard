@@ -8,6 +8,7 @@ import { useExchangeRates } from '../../hooks/useExchangeRates.js'
 import { MONTHS_LONG } from '../../constants.js'
 import { CustomTooltip, PieTooltip } from './ChartTooltips.jsx'
 import { useDashboardData } from './dashboardData.js'
+import { LEDGER_BREAKDOWN } from './dashboardChartData.js'
 import { getEntryCurrency } from './dashboardUtils.js'
 import AnalyticsPanel from './AnalyticsPanel.jsx'
 import MetricCard from './MetricCard.jsx'
@@ -26,14 +27,16 @@ export default function Dashboard({ entries, wallets = [], ledgers, categories }
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(now.getFullYear())
+  const [donutDimension, setDonutDimension] = useState(LEDGER_BREAKDOWN)
   const {
     filters: { years },
     summary: { totals, net, netChange },
-    charts: { barData, ledgerPieData },
+    charts: { barData, donut },
     analytics,
-  } = useDashboardData({ entries, ledgers, categories, selectedMonth, selectedYear, currencyCode: currency.code, exchangeRateState })
+  } = useDashboardData({ entries, ledgers, categories, selectedMonth, selectedYear, currencyCode: currency.code, exchangeRateState, donutDimension })
 
   const inputCls = 'border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
+  const compactSelectCls = 'border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 text-xs bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 max-w-[50%]'
 
   if (entries.length > 0 && ratesLoading) {
     return (
@@ -94,16 +97,29 @@ export default function Dashboard({ entries, wallets = [], ledgers, categories }
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
-          <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-4">This Month by Ledger</h3>
-          {ledgerPieData.length === 0 ? (
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400">{donut.title}</h3>
+            <select
+              value={donutDimension}
+              onChange={e => setDonutDimension(e.target.value === LEDGER_BREAKDOWN ? LEDGER_BREAKDOWN : Number(e.target.value))}
+              className={compactSelectCls}
+              aria-label="Break the month down by"
+            >
+              <option value={LEDGER_BREAKDOWN}>By ledger</option>
+              {ledgers.map(ledger => (
+                <option key={ledger.id} value={ledger.id}>{ledger.name}</option>
+              ))}
+            </select>
+          </div>
+          {donut.rows.length === 0 ? (
             <div className="h-64 flex items-center justify-center text-gray-300 dark:text-gray-600 text-sm">
               No data for this month
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
-                <Pie data={ledgerPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={40}>
-                  {ledgerPieData.map(entry => (
+                <Pie data={donut.rows} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={40}>
+                  {donut.rows.map(entry => (
                     <Cell key={entry.id} fill={entry.color} />
                   ))}
                 </Pie>
