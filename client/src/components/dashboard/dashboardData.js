@@ -1,11 +1,10 @@
 import { useMemo } from 'react'
 import { MONTHS_SHORT } from '../../constants.js'
 import { buildDashboardAnalytics } from './dashboardAnalytics.js'
+import { buildDonutData, LEDGER_BREAKDOWN } from './dashboardChartData.js'
 import { getYearMonth, convertEntryAmount, totalsFor } from './dashboardUtils.js'
 
-const DEFAULT_CHART_COLOR = '#6b7280'
-
-export const useDashboardData = ({ entries, ledgers, categories, selectedYear, selectedMonth, currencyCode, exchangeRateState }) => {
+export const useDashboardData = ({ entries, ledgers, categories, selectedYear, selectedMonth, currencyCode, exchangeRateState, donutDimension = LEDGER_BREAKDOWN }) => {
   const currentYear = new Date().getFullYear()
   const years = useMemo(() => {
     const ys = new Set(entries.map(entry => getYearMonth(entry.date).year))
@@ -44,26 +43,13 @@ export const useDashboardData = ({ entries, ledgers, categories, selectedYear, s
   const lastNet = lastTotals.income - lastTotals.expense - lastTotals.investment
   const netChange = lastNet === 0 ? null : (net - lastNet) / Math.abs(lastNet) * 100
 
-  const ledgerPieData = useMemo(() => {
-    const map = {}
-    monthEntries.forEach(entry => {
-      const ledger = ledgerMap[entry.ledger_id]
-      const key = ledger?.id ?? entry.ledger_id ?? entry.ledger_name ?? 'unknown'
-      const name = ledger?.name || entry.ledger_name || 'Unknown'
-      if (!map[key]) {
-        map[key] = {
-          id: key,
-          name,
-          color: ledger?.color || DEFAULT_CHART_COLOR,
-          value: 0,
-        }
-      }
-      map[key].value += convertEntryAmount(entry, currencyCode, exchangeRateState)
-    })
-    return Object.values(map)
-      .map(row => ({ ...row, value: parseFloat(row.value.toFixed(2)) }))
-      .sort((a, b) => b.value - a.value)
-  }, [monthEntries, ledgerMap, exchangeRateState, currencyCode])
+  const donut = useMemo(() => buildDonutData({
+    monthEntries,
+    dimension: donutDimension,
+    ledgerMap,
+    currencyCode,
+    exchangeRateState,
+  }), [monthEntries, donutDimension, ledgerMap, exchangeRateState, currencyCode])
 
   const barData = useMemo(() => {
     const result = []
@@ -105,7 +91,7 @@ export const useDashboardData = ({ entries, ledgers, categories, selectedYear, s
   return {
     filters: { years },
     summary: { totals, net, netChange },
-    charts: { barData, ledgerPieData },
+    charts: { barData, donut },
     analytics,
   }
 }
