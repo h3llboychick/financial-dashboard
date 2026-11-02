@@ -18,6 +18,8 @@ import { makeExchangeRatesRouter } from './modules/exchangeRates/exchangeRates.r
 import { makeExchangesRouter } from './modules/exchanges/exchanges.routes.js'
 import { makeLedgersRouter } from './modules/ledgers/ledgers.routes.js'
 import { makeLedgerRepo } from './modules/ledgers/ledgers.repository.js'
+import { makeTransferRepo } from './modules/transfers/transfers.repository.js'
+import { makeTransfersRouter } from './modules/transfers/transfers.routes.js'
 import { makeWalletsRouter } from './modules/wallets/wallets.routes.js'
 import { makeWalletRepo } from './modules/wallets/wallets.repository.js'
 import { requireAuth, requireAuthDev } from './shared/middleware/authMiddleware.js'
@@ -44,6 +46,7 @@ export function createApp() {
     ledger_repo: makeLedgerRepo(db),
     entry_repo: makeEntryRepo(db),
     wallet_repo: makeWalletRepo(db),
+    transfer_repo: makeTransferRepo(db),
   }
 
   const services = {
@@ -88,6 +91,7 @@ export function createApp() {
   app.use('/api/entries', makeEntriesRouter(repos))
   app.use('/api/categories', makeCategoriesRouter(repos))
   app.use('/api/wallets', makeWalletsRouter(repos))
+  app.use('/api/transfers', makeTransfersRouter(repos))
   app.use('/api/exchange-rates', makeExchangeRatesRouter())
   app.use('/api/exchanges', makeExchangesRouter())
   app.get('/api/config', (req, res) => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { getExchanges, getWalletLiveBalance, getWallets } from '../../api.js'
+import { getExchanges, getTransfers, getWalletLiveBalance, getWallets } from '../../api.js'
 import { useExchangeRates } from '../../hooks/useExchangeRates.js'
 import { normalizeExchangeOptions } from './walletUtils.js'
 
@@ -29,6 +29,22 @@ export function useWalletList(onDataChange) {
   useEffect(() => { loadWallets() }, [loadWallets])
 
   return { wallets, loading, error, refreshWallets }
+}
+
+export function useTransfers() {
+  const [transfers, setTransfers] = useState([])
+
+  const loadTransfers = useCallback(async () => {
+    try {
+      setTransfers(await getTransfers())
+    } catch {
+      setTransfers([])
+    }
+  }, [])
+
+  useEffect(() => { loadTransfers() }, [loadTransfers])
+
+  return { transfers, refreshTransfers: loadTransfers }
 }
 
 export function useExchangeOptions() {
