@@ -44,24 +44,25 @@ export function makeRecurringRepo(db) {
     create({
       user_id, name, ledger_id, wallet_id, category_id, amount, currency, note = '',
       frequency = 'monthly', interval_count = 1, day_of_month = 1, last_day = 0,
-      weekday = null, month_of_year = null, start_date,
+      weekday = null, month_of_year = null, start_date, end_date = null,
     }) {
       return db
         .prepare(
           `INSERT INTO recurring_rules (
             user_id, name, ledger_id, wallet_id, category_id, amount, currency, note,
-            frequency, interval_count, day_of_month, last_day, weekday, month_of_year, start_date
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            frequency, interval_count, day_of_month, last_day, weekday, month_of_year, start_date, end_date
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           user_id, name, ledger_id, wallet_id, category_id, amount, currency, note,
-          frequency, interval_count, day_of_month, last_day, weekday, month_of_year, start_date,
+          frequency, interval_count, day_of_month, last_day, weekday, month_of_year, start_date, end_date,
         )
     },
 
     update({
       rule_id, user_id, name, ledger_id, wallet_id, category_id, amount, currency, note,
-      frequency, interval_count, day_of_month, last_day, weekday, month_of_year, start_date, active,
+      frequency, interval_count, day_of_month, last_day, weekday, month_of_year, start_date, end_date,
+      clear_end_date = false, active,
     }) {
       return db
         .prepare(
@@ -80,6 +81,7 @@ export function makeRecurringRepo(db) {
             weekday = COALESCE(?, weekday),
             month_of_year = COALESCE(?, month_of_year),
             start_date = COALESCE(?, start_date),
+            end_date = CASE WHEN ? = 1 THEN NULL ELSE COALESCE(?, end_date) END,
             active = COALESCE(?, active)
           WHERE id = ? AND user_id = ?`,
         )
@@ -98,6 +100,8 @@ export function makeRecurringRepo(db) {
           weekday ?? null,
           month_of_year ?? null,
           start_date ?? null,
+          clear_end_date ? 1 : 0,
+          end_date ?? null,
           active ?? null,
           rule_id,
           user_id,

@@ -92,6 +92,11 @@ export function makeRecurringRouter(repos) {
      *               start_date:
      *                 type: string
      *                 example: '2026-09-01'
+     *               end_date:
+     *                 type: string
+     *                 nullable: true
+     *                 example: '2027-09-01'
+     *                 description: Optional. No occurrence is created after this date.
      *               note:
      *                 type: string
      *                 maxLength: 2000
@@ -104,27 +109,6 @@ export function makeRecurringRouter(repos) {
      *         description: Ledger, wallet or category not found
      */
     router.post('/', controller.create)
-
-    /**
-     * @openapi
-     * /recurring/run:
-     *   post:
-     *     tags: [Recurring]
-     *     summary: Materialise due occurrences now
-     *     description: Same work the hourly timer does, callable on demand.
-     *     responses:
-     *       200:
-     *         description: How many rules were checked and how many entries were created
-     *         content:
-     *           application/json:
-     *             example:
-     *               rules_checked: 3
-     *               entries_created: 1
-     *               occurrences:
-     *                 - rule_id: 1
-     *                   date: '2026-11-28'
-     */
-    router.post('/run', controller.run)
 
     /**
      * @openapi
