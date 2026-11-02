@@ -18,7 +18,6 @@ export function up({ context: db }) {
             weekday INTEGER CHECK(weekday IS NULL OR weekday BETWEEN 0 AND 6),
             month_of_year INTEGER CHECK(month_of_year IS NULL OR month_of_year BETWEEN 1 AND 12),
             start_date TEXT NOT NULL,
-            end_date TEXT,
             active INTEGER NOT NULL DEFAULT 1,
             last_generated_on TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
