@@ -49,4 +49,18 @@ function normalizeExchangeOptions(data) {
   return exchanges 
 }
 
-export { getEmptyCredentialValues, formatCurrency, normalizeExchangeOptions }
+/**
+ * Wallets a transfer can be sent to: fiat, same currency, and not the source.
+ * Transfers between currencies need an exchange rate, so they stay out of v1.
+ */
+function transferDestinations(wallets, fromWalletId) {
+  const source = (wallets ?? []).find(wallet => wallet.id === Number(fromWalletId))
+  if (!source) return []
+  return (wallets ?? []).filter(wallet =>
+    wallet.type === 'fiat' &&
+    wallet.id !== source.id &&
+    wallet.currency === source.currency
+  )
+}
+
+export { getEmptyCredentialValues, formatCurrency, normalizeExchangeOptions, transferDestinations }

@@ -44,6 +44,10 @@ export const updateWallet            = (id, data) => request(`/wallets/${id}`, {
 export const deleteWallet            = (id)       => request(`/wallets/${id}`, { method: 'DELETE' })
 export const saveWalletCredentials   = (id, data) => request(`/wallets/${id}/credentials`, { method: 'PUT', body: JSON.stringify(data) })
 export const getWalletLiveBalance    = (id)       => request(`/wallets/${id}/live-balance`)
+
+export const getTransfers   = ()     => request('/transfers')
+export const createTransfer = (data) => request('/transfers', { method: 'POST', body: JSON.stringify(data) })
+export const deleteTransfer = (id)   => request(`/transfers/${id}`, { method: 'DELETE' })
 export const getExchanges            = ()         => request('/exchanges')
 export const getExchangeRates        = ({ target, sources }) => {
   const params = new URLSearchParams({

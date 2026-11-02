@@ -2,9 +2,12 @@ import { useCallback, useState } from 'react'
 import { useCurrency } from '../../contexts/CurrencyContext.jsx'
 import WalletCard from './WalletCard.jsx'
 import AddWalletForm from './AddWalletForm.jsx'
+import TransferForm from './TransferForm.jsx'
+import Transfers from './Transfers.jsx'
 import {
   useExchangeOptions,
   useLivePortfolios,
+  useTransfers,
   useWalletBalanceData,
   useWalletGroups,
   useWalletList,
@@ -14,7 +17,9 @@ import {
 export default function Wallets({onDataChange}) {
   const { currency, format } = useCurrency()
   const [showAddForm, setShowAddForm] = useState(false)
+  const [showTransferForm, setShowTransferForm] = useState(false)
   const { wallets, loading, error, refreshWallets } = useWalletList(onDataChange)
+  const { transfers, refreshTransfers } = useTransfers()
   const exchangeOptions = useExchangeOptions()
   const { fiatWallets, exchangeWallets, existingFiatCurrencies } = useWalletGroups(wallets)
   const { livePortfolios, loadExchangePortfolio } = useLivePortfolios(exchangeWallets)
@@ -36,6 +41,17 @@ export default function Wallets({onDataChange}) {
     refreshWallets()
   }, [refreshWallets])
 
+  const handleTransferred = useCallback(() => {
+    setShowTransferForm(false)
+    refreshTransfers()
+    refreshWallets()
+  }, [refreshTransfers, refreshWallets])
+
+  const handleTransferDeleted = useCallback(() => {
+    refreshTransfers()
+    refreshWallets()
+  }, [refreshTransfers, refreshWallets])
+
   if (loading || (wallets?.length > 0 && balanceLoading)) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -56,12 +72,22 @@ export default function Wallets({onDataChange}) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Wallets</h2>
-        <button
-          onClick={() => setShowAddForm(v => !v)}
-          className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-        >
-          {showAddForm ? 'Cancel' : '+ Add Wallet'}
-        </button>
+        <div className="flex items-center gap-2">
+          {fiatWallets.length > 1 && (
+            <button
+              onClick={() => setShowTransferForm(v => !v)}
+              className="px-4 py-2 text-sm border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              {showTransferForm ? 'Cancel' : 'Transfer'}
+            </button>
+          )}
+          <button
+            onClick={() => setShowAddForm(v => !v)}
+            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            {showAddForm ? 'Cancel' : '+ Add Wallet'}
+          </button>
+        </div>
       </div>
 
       {wallets?.length > 0 && (
@@ -90,6 +116,14 @@ export default function Wallets({onDataChange}) {
           exchangeOptions={exchangeOptions}
           onCreated={handleCreated}
           onCancel={() => setShowAddForm(false)}
+        />
+      )}
+
+      {showTransferForm && (
+        <TransferForm
+          wallets={fiatWallets}
+          onCreated={handleTransferred}
+          onCancel={() => setShowTransferForm(false)}
         />
       )}
 
@@ -141,6 +175,8 @@ export default function Wallets({onDataChange}) {
           </div>
         </section>
       )}
+
+      <Transfers transfers={transfers} onDeleted={handleTransferDeleted} />
     </div>
   )
 }

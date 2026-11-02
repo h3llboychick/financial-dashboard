@@ -5,17 +5,25 @@ import { getExchangeAdapter, getSupportedExchanges } from '../exchanges/registry
 const WALLET_TYPES = new Set(['fiat', 'exchange'])
 const EXCHANGE_SLUGS = getSupportedExchanges()
 
-function compute_fiat_balance(wallet_repo, wallet, user_id) {
+function compute_fiat_balance(wallet_repo, transfer_repo, wallet, user_id) {
   const totals = wallet_repo.get_fiat_entry_totals_after_anchor({
     user_id,
     currency: wallet.currency,
     wallet_id: wallet.id,
     anchor_entry_id: wallet.balance_anchor_entry_id ?? 0,
   })
-  return wallet.initial_balance + totals.total_income - totals.total_expense - totals.total_investment
+  const transfers = transfer_repo?.get_totals_after_anchor({
+    user_id,
+    wallet_id: wallet.id,
+    currency: wallet.currency,
+    anchor_at: wallet.balance_anchor_at ?? null,
+  }) ?? { total_in: 0, total_out: 0 }
+  return wallet.initial_balance
+    + totals.total_income - totals.total_expense - totals.total_investment
+    + transfers.total_in - transfers.total_out
 }
 
-export function makeWalletsController({ wallet_repo }) {
+export function makeWalletsController({ wallet_repo, transfer_repo }) {
     function list(req, res) {
         const user_id = req.user.user_id
         const wallets = wallet_repo.list({ user_id })
@@ -29,7 +37,7 @@ export function makeWalletsController({ wallet_repo }) {
                     type: wallet.type,
                     currency: wallet.currency,
                     initial_balance: wallet.initial_balance,
-                    balance: compute_fiat_balance(wallet_repo, wallet, user_id)
+                    balance: compute_fiat_balance(wallet_repo, transfer_repo, wallet, user_id)
                 }
             }
             // exchange wallets: balance fetched on demand via /live-balance
