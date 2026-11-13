@@ -1,5 +1,20 @@
 const WEEKDAY_RU = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
+const MONTH_RU = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
 const SLIDE_MS = 5200
+
+function plural(count, one, few, many) {
+  const mod100 = count % 100
+  const mod10 = count % 10
+  if (mod100 >= 11 && mod100 <= 14) return many
+  if (mod10 === 1) return one
+  if (mod10 >= 2 && mod10 <= 4) return few
+  return many
+}
+
+function formatDate(iso) {
+  const [year, month, day] = String(iso).split('-')
+  return `${day}.${month}.${year}`
+}
 
 export function money(value) {
   const rounded = Math.round(Number(value) || 0)
@@ -28,7 +43,28 @@ export function buildSlides(data) {
     value: data.totals.net,
     prefix: data.totals.net > 0 ? '+' : '',
     tone: data.totals.net >= 0 ? 'green' : 'red',
-    body: `${data.totals.entries} записей, ${data.months_positive} месяцев из ${data.months.length} в плюсе`,
+    body: `Заработал ${money(data.totals.earned)}, потратил ${money(data.totals.spent)}. ` +
+      `${data.totals.entries} записей, ${data.months_positive} из ${data.months.length} ${plural(data.months.length, 'месяца', 'месяцев', 'месяцев')} в плюсе.`,
+  })
+
+  const monthMax = Math.max(...data.months.map(month => Math.abs(month.net)), 1)
+  const bestMonth = data.months.reduce((best, month) => (best === null || month.net > best.net ? month : best), null)
+  const worstMonth = data.months.reduce((worst, month) => (worst === null || month.net < worst.net ? month : worst), null)
+
+  slides.push({
+    id: 'months',
+    kicker: 'по месяцам',
+    title: `${data.months.filter(month => month.net > 0).length} из ${data.months.length} в плюсе`,
+    bars: data.months.map(month => ({
+      label: MONTH_RU[month.month - 1],
+      value: Math.abs(month.net),
+      display: `${month.net > 0 ? '+' : month.net < 0 ? '−' : ''}${money(Math.abs(month.net))}`,
+      color: month.net >= 0 ? 'from-emerald-400 to-emerald-700' : 'from-red-400 to-red-600',
+    })),
+    barMax: monthMax,
+    body: bestMonth && worstMonth
+      ? `Лучший ${MONTH_RU[bestMonth.month - 1]}: ${bestMonth.net > 0 ? '+' : '−'}${money(Math.abs(bestMonth.net))}, худший ${MONTH_RU[worstMonth.month - 1]}: ${worstMonth.net > 0 ? '+' : '−'}${money(Math.abs(worstMonth.net))}.`
+      : '',
   })
 
   slides.push({
@@ -77,13 +113,28 @@ export function buildSlides(data) {
       .map(day => ({ label: WEEKDAY_RU[(day.index + 6) % 7], ratio: day.amount / weekdayMax })),
   })
 
+  const parts = []
+  if (data.subscriptions.active_rules > 0) {
+    parts.push(`Подписки ${money(data.subscriptions.monthly_amount)} в месяц, ${data.subscriptions.active_rules} ${plural(data.subscriptions.active_rules, 'правило', 'правила', 'правил')}`)
+  }
+  if (data.recurring_income?.active_rules > 0) {
+    parts.push(`регулярный доход ${money(data.recurring_income.monthly_amount)} в месяц`)
+  }
+  if (data.transfers_count > 0) {
+    parts.push(`${data.transfers_count} ${plural(data.transfers_count, 'перевод', 'перевода', 'переводов')} между кошельками`)
+  }
+  if (data.logging.median_hour !== null) {
+    parts.push(`обычно записываешь около ${String(data.logging.median_hour).padStart(2, '0')}:00`)
+  }
+
   slides.push({
     id: 'habits',
-    kicker: 'подписки и переводы',
+    kicker: 'постоянные платежи',
     value: data.subscriptions.monthly_amount,
     suffix: ' в месяц',
-    body: `${data.subscriptions.active_rules} активных правил, ${data.transfers_count} переводов между кошельками.` +
-      (data.logging.median_hour !== null ? ` Обычно записываешь около ${String(data.logging.median_hour).padStart(2, '0')}:00.` : ''),
+    body: parts.length > 0
+      ? parts.map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('. ') + '.'
+      : 'Постоянных платежей пока нет.',
   })
 
   slides.push({
@@ -92,7 +143,9 @@ export function buildSlides(data) {
     value: data.totals.net,
     prefix: data.totals.net > 0 ? '+' : '',
     tone: data.totals.net >= 0 ? 'green' : 'red',
-    body: `Заработано ${money(data.totals.earned)}, потрачено ${money(data.totals.spent)}, отложено ${money(data.totals.invested)}.`,
+    body: `Заработано ${money(data.totals.earned)}, потрачено ${money(data.totals.spent)}, отложено ${money(data.totals.invested)}.` +
+      (data.rates_date ? ` Валюты пересчитаны по курсу на ${formatDate(data.rates_date)}.` : '') +
+      (data.skipped_other_currency > 0 ? ` ${data.skipped_other_currency} записей не попали: не нашёл курс.` : ''),
     final: true,
   })
 

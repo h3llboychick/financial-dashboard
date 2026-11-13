@@ -195,13 +195,13 @@ export default function Wrapped({ year, onClose }) {
               </div>
             )}
 
-            {slide.id === 'flow' && (
-              <div className="mt-8 space-y-5">
+            {slide.bars && (
+              <div className={`mt-8 ${slide.bars.length > 5 ? 'space-y-2' : 'space-y-5'}`}>
                 {slide.bars.map(bar => (
                   <div key={bar.label}>
                     <div className="flex justify-between text-sm text-white/85">
                       <span>{bar.label}</span>
-                      <span className="tabular-nums">{money(bar.value)}</span>
+                      <span className="tabular-nums">{bar.display ?? money(bar.value)}</span>
                     </div>
                     <div className="mt-1.5 h-2.5 rounded bg-white/10 overflow-hidden">
                       <div
