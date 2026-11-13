@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { getWrapped } from '../../api.js'
 import { SLIDE_MS, buildSlides, money } from './wrappedSlides.js'
 
@@ -46,6 +47,7 @@ export default function Wrapped({ year, onClose }) {
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
   const reduced = useReducedMotion()
+  const touchStart = useRef(null)
 
   useEffect(() => {
     let alive = true
@@ -79,29 +81,35 @@ export default function Wrapped({ year, onClose }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [next, prev, onClose])
 
+  useEffect(() => {
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = previous }
+  }, [])
+
   if (error) {
-    return (
-      <div className="fixed inset-0 z-50 bg-gray-950 text-white flex items-center justify-center p-8">
+    return createPortal((
+      <div className="fixed inset-0 z-[60] h-[100dvh] w-screen bg-gray-950 text-white flex items-center justify-center p-8">
         <div className="text-center space-y-4">
           <p className="text-sm text-red-300">{error}</p>
           <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-white/20">Закрыть</button>
         </div>
       </div>
-    )
+    ), document.body)
   }
 
   if (!data) {
-    return (
-      <div className="fixed inset-0 z-50 bg-gray-950 text-white flex items-center justify-center">
+    return createPortal((
+      <div className="fixed inset-0 z-[60] h-[100dvh] w-screen bg-gray-950 text-white flex items-center justify-center">
         <p className="text-sm text-gray-400">Собираем твой год…</p>
       </div>
-    )
+    ), document.body)
   }
 
   const slide = slides[index]
 
-  return (
-    <div className="fixed inset-0 z-50 bg-gray-950 text-white overflow-hidden">
+  return createPortal((
+    <div className="fixed inset-0 z-[60] h-[100dvh] w-screen bg-gray-950 text-white overflow-hidden overscroll-contain">
       <div className={`absolute -inset-1/4 ${reduced ? '' : 'animate-[drift_18s_ease-in-out_infinite_alternate]'}`}>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(56,189,248,0.35),transparent_45%),radial-gradient(circle_at_75%_70%,rgba(168,85,247,0.35),transparent_45%),radial-gradient(circle_at_50%_95%,rgba(16,185,129,0.30),transparent_50%)] blur-3xl" />
       </div>
@@ -128,7 +136,24 @@ export default function Wrapped({ year, onClose }) {
 
         <div
           className="flex-1 flex flex-col justify-center"
-          onClick={next}
+          onClick={event => {
+            const { left, width } = event.currentTarget.getBoundingClientRect()
+            const x = event.clientX - left
+            if (x < width / 3) prev()
+            else next()
+          }}
+          onTouchStart={event => { touchStart.current = event.touches[0]?.clientX ?? null }}
+          onTouchEnd={event => {
+            const start = touchStart.current
+            const end = event.changedTouches[0]?.clientX ?? null
+            touchStart.current = null
+            if (start === null || end === null) return
+            const delta = end - start
+            if (Math.abs(delta) > 48) {
+              if (delta > 0) prev()
+              else next()
+            }
+          }}
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
         >
@@ -237,5 +262,5 @@ export default function Wrapped({ year, onClose }) {
         }
       `}</style>
     </div>
-  )
+  ), document.body)
 }
