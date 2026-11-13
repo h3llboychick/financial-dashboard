@@ -1,15 +1,29 @@
 import { integerRangeInput } from '../../shared/validation/financialInput.js'
 import { getRatesToTarget } from '../../shared/exchangeRates/ratesProvider.js'
 import { buildWrapped, dominantCurrencyForYear } from './wrapped.service.js'
+import { wrappedWindow } from '../../shared/wrapped/window.js'
 
 const CURRENCY_CODE = /^[A-Z]{3}$/
 
 export function makeWrappedController({ entry_repo, ledger_repo, category_repo, transfer_repo, recurring_repo, settings_repo }) {
+  function availability(req, res) {
+    res.json(wrappedWindow())
+  }
+
   async function show(req, res) {
     const user_id = req.user.user_id
+    const window = wrappedWindow()
+    if (!window.available) {
+      return res.status(403).json({
+        error: 'Wrapped opens on 15 December and closes after 1 January',
+        opens_at: window.opens_at,
+        closes_at: window.closes_at,
+      })
+    }
+
     const year = Object.hasOwn(req.query, 'year')
       ? integerRangeInput(req.query.year, { min: 2000, max: 2100 }, 'year')
-      : new Date().getUTCFullYear()
+      : window.year
 
     const entries = entry_repo.list({ user_id })
     const rules = recurring_repo.list({ user_id })
@@ -54,5 +68,5 @@ export function makeWrappedController({ entry_repo, ledger_repo, category_repo, 
     }))
   }
 
-  return { show }
+  return { show, availability }
 }

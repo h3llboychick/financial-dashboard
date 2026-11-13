@@ -48,6 +48,17 @@ export function makeWrappedRouter(repos) {
      *                   share: 36.6
      *               no_spend_days: 96
      */
+    /**
+     * @openapi
+     * /wrapped/availability:
+     *   get:
+     *     tags: [Wrapped]
+     *     summary: Whether the yearly recap is open right now
+     *     responses:
+     *       200:
+     *         description: Availability window, recap year and closing time
+     */
+    router.get('/availability', controller.availability)
     router.get('/', controller.show)
 
     return router
