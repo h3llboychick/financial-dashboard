@@ -41,7 +41,7 @@ function CountUp({ value, currency, enabled, prefix = '', suffix = '' }) {
   return <span className="tabular-nums">{prefix}{money(shown, currency)}{suffix}</span>
 }
 
-export default function Wrapped({ year, currency, onClose }) {
+export default function Wrapped({ year, onClose }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [index, setIndex] = useState(0)

@@ -148,7 +148,7 @@ export default function Dashboard({ entries, wallets = [], ledgers, categories }
 
       <AnalyticsPanel analytics={analytics} format={format} />
 
-      {wrappedOpen && <Wrapped year={selectedYear} currency={currency.code} onClose={() => setWrappedOpen(false)} />}
+      {wrappedOpen && <Wrapped year={selectedYear} onClose={() => setWrappedOpen(false)} />}
 
       <RecentActivity
         entries={entries}

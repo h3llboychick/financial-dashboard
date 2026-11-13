@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback, useMemo } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react'
+import { getSettings, saveSettings } from '../api.js'
 
 export const CURRENCIES = [
   { code: 'EUR', symbol: '€' },
@@ -21,6 +22,20 @@ const CurrencyContext = createContext(null)
 export function CurrencyProvider({ children }) {
   const [code, setCode] = useState(() => localStorage.getItem('currency') || 'EUR')
 
+  // The account currency is the source of truth; localStorage only keeps the
+  // first paint from flickering before it arrives.
+  useEffect(() => {
+    let alive = true
+    getSettings()
+      .then(settings => {
+        if (!alive || !settings?.currency) return
+        localStorage.setItem('currency', settings.currency)
+        setCode(settings.currency)
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
+
   const currency = useMemo(
     () => CURRENCIES.find(c => c.code === code) || CURRENCIES[0],
     [code]
@@ -29,6 +44,7 @@ export function CurrencyProvider({ children }) {
   const setCurrency = useCallback((newCode) => {
     localStorage.setItem('currency', newCode)
     setCode(newCode)
+    saveSettings({ currency: newCode }).catch(() => {})
   }, [])
 
   const format = useCallback(

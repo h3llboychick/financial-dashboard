@@ -33,7 +33,7 @@ describe('migrations', () => {
     const fresh = await migrateFreshDatabase()
     db = fresh.db
 
-    expect(fresh.files.at(-1)).toBe('007_recurring_end_date.js')
+    expect(fresh.files.at(-1)).toBe('008_user_settings.js')
 
     const columns = db.prepare('PRAGMA table_info(recurring_rules)').all().map(column => column.name)
     for (const required of ['frequency', 'interval_count', 'day_of_month', 'last_day', 'weekday', 'month_of_year', 'start_date', 'end_date']) {
