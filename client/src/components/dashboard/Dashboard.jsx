@@ -11,6 +11,7 @@ import { useDashboardData } from './dashboardData.js'
 import { LEDGER_BREAKDOWN } from './dashboardChartData.js'
 import { getEntryCurrency } from './dashboardUtils.js'
 import AnalyticsPanel from './AnalyticsPanel.jsx'
+import Wrapped from '../wrapped/Wrapped.jsx'
 import MetricCard from './MetricCard.jsx'
 import RecentActivity from './RecentActivity.jsx'
 
@@ -28,6 +29,7 @@ export default function Dashboard({ entries, wallets = [], ledgers, categories }
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(now.getFullYear())
   const [donutDimension, setDonutDimension] = useState(LEDGER_BREAKDOWN)
+  const [wrappedOpen, setWrappedOpen] = useState(false)
   const {
     filters: { years },
     summary: { totals, net, netChange },
@@ -131,7 +133,22 @@ export default function Dashboard({ entries, wallets = [], ledgers, categories }
         </div>
       </div>
 
+      <button
+        onClick={() => setWrappedOpen(true)}
+        className="w-full text-left rounded-xl p-5 bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-emerald-500/10 border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors"
+      >
+        <p className="text-[11px] uppercase tracking-widest text-gray-400 dark:text-gray-500">Твой год в цифрах</p>
+        <p className="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-100">
+          Открыть wrapped {selectedYear}
+        </p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          Итоги, привычки и самый дорогой день. Пара минут, слайды.
+        </p>
+      </button>
+
       <AnalyticsPanel analytics={analytics} format={format} />
+
+      {wrappedOpen && <Wrapped year={selectedYear} onClose={() => setWrappedOpen(false)} />}
 
       <RecentActivity
         entries={entries}
