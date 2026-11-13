@@ -137,18 +137,18 @@ export default function Dashboard({ entries, wallets = [], ledgers, categories }
         onClick={() => setWrappedOpen(true)}
         className="w-full text-left rounded-xl p-5 bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-emerald-500/10 border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors"
       >
-        <p className="text-[11px] uppercase tracking-widest text-gray-400 dark:text-gray-500">Твой год в цифрах</p>
+        <p className="text-[11px] uppercase tracking-widest text-gray-400 dark:text-gray-500">Your year in numbers</p>
         <p className="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-100">
-          Открыть wrapped {selectedYear}
+          Open wrapped {selectedYear}
         </p>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-          Итоги, привычки и самый дорогой день. Пара минут, слайды.
+          Totals, habits and the priciest day. A couple of minutes, a few slides.
         </p>
       </button>
 
       <AnalyticsPanel analytics={analytics} format={format} />
 
-      {wrappedOpen && <Wrapped year={selectedYear} onClose={() => setWrappedOpen(false)} />}
+      {wrappedOpen && <Wrapped year={selectedYear} currency={currency.code} onClose={() => setWrappedOpen(false)} />}
 
       <RecentActivity
         entries={entries}

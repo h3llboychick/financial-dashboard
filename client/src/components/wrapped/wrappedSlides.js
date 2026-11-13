@@ -1,156 +1,166 @@
-const WEEKDAY_RU = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
-const MONTH_RU = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
+const WEEKDAY_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const MONTH_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const SLIDE_MS = 5200
 
-function plural(count, one, few, many) {
-  const mod100 = count % 100
-  const mod10 = count % 10
-  if (mod100 >= 11 && mod100 <= 14) return many
-  if (mod10 === 1) return one
-  if (mod10 >= 2 && mod10 <= 4) return few
-  return many
+function plural(count, one, many) {
+  return count === 1 ? one : many
 }
 
 function formatDate(iso) {
   const [year, month, day] = String(iso).split('-')
-  return `${day}.${month}.${year}`
+  return `${Number(day)} ${MONTH_EN[Number(month) - 1]} ${year}`
 }
 
-export function money(value) {
-  const rounded = Math.round(Number(value) || 0)
-  // ru-RU groups thousands with a non-breaking space; keep one plain space so
-  // the string is the same everywhere it is rendered
-  return rounded.toLocaleString('ru-RU').replace(/[\u00A0\u202F,]/g, ' ') + ' €'
+/** Amount in the currency the report was built in. */
+export function money(value, currency = 'EUR') {
+  const amount = Math.round(Number(value) || 0)
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount)
 }
 
 export function buildSlides(data) {
+  const currency = data?.currency ?? 'EUR'
+  const cash = value => money(value, currency)
+
   if (!data?.has_data) {
     return [{
       id: 'empty',
       kicker: `${data?.year ?? ''}`,
-      title: 'Пока нечего показать',
-      body: 'За этот год нет записей в основной валюте. Добавь пару трат, и отчёт соберётся сам.',
+      title: 'Nothing here yet',
+      body: 'No entries for this year in your main currency. Add a couple and the recap builds itself.',
     }]
   }
 
   const slides = []
-  const top = data.categories[0]
-  const weekdayMax = Math.max(...data.weekdays.map(day => day.amount), 1)
-
-  slides.push({
-    id: 'net',
-    kicker: `${data.year} в цифрах`,
-    value: data.totals.net,
-    prefix: data.totals.net > 0 ? '+' : '',
-    tone: data.totals.net >= 0 ? 'green' : 'red',
-    body: `Заработал ${money(data.totals.earned)}, потратил ${money(data.totals.spent)}. ` +
-      `${data.totals.entries} записей, ${data.months_positive} из ${data.months.length} ${plural(data.months.length, 'месяца', 'месяцев', 'месяцев')} в плюсе.`,
-  })
-
   const monthMax = Math.max(...data.months.map(month => Math.abs(month.net)), 1)
   const bestMonth = data.months.reduce((best, month) => (best === null || month.net > best.net ? month : best), null)
   const worstMonth = data.months.reduce((worst, month) => (worst === null || month.net < worst.net ? month : worst), null)
+  const positiveMonths = data.months.filter(month => month.net > 0).length
+
+  slides.push({
+    id: 'net',
+    kicker: `${data.year} in numbers`,
+    value: data.totals.net,
+    prefix: data.totals.net > 0 ? '+' : '',
+    tone: data.totals.net >= 0 ? 'green' : 'red',
+    body: `You brought in ${cash(data.totals.earned)} and spent ${cash(data.totals.spent)}. ` +
+      `${data.totals.entries} entries, ${positiveMonths} of ${data.months.length} ` +
+      `${plural(data.months.length, 'month', 'months')} in the black.`,
+  })
 
   slides.push({
     id: 'months',
-    kicker: 'по месяцам',
-    title: `${data.months.filter(month => month.net > 0).length} из ${data.months.length} в плюсе`,
+    kicker: 'month by month',
+    title: `${positiveMonths} of ${data.months.length} in the black`,
     bars: data.months.map(month => ({
-      label: MONTH_RU[month.month - 1],
+      label: MONTH_EN[month.month - 1],
       value: Math.abs(month.net),
-      display: `${month.net > 0 ? '+' : month.net < 0 ? '−' : ''}${money(Math.abs(month.net))}`,
+      display: `${month.net > 0 ? '+' : month.net < 0 ? '-' : ''}${cash(Math.abs(month.net))}`,
       color: month.net >= 0 ? 'from-emerald-400 to-emerald-700' : 'from-red-400 to-red-600',
     })),
     barMax: monthMax,
     body: bestMonth && worstMonth
-      ? `Лучший ${MONTH_RU[bestMonth.month - 1]}: ${bestMonth.net > 0 ? '+' : '−'}${money(Math.abs(bestMonth.net))}, худший ${MONTH_RU[worstMonth.month - 1]}: ${worstMonth.net > 0 ? '+' : '−'}${money(Math.abs(worstMonth.net))}.`
+      ? `Best ${MONTH_EN[bestMonth.month - 1]}: ${bestMonth.net > 0 ? '+' : '-'}${cash(Math.abs(bestMonth.net))}, ` +
+        `worst ${MONTH_EN[worstMonth.month - 1]}: ${worstMonth.net > 0 ? '+' : '-'}${cash(Math.abs(worstMonth.net))}.`
       : '',
   })
 
   slides.push({
     id: 'flow',
-    kicker: 'куда шли деньги',
+    kicker: 'where the money went',
     bars: [
-      { label: 'заработал', value: data.totals.earned, color: 'from-emerald-400 to-emerald-700' },
-      { label: 'потратил', value: data.totals.spent, color: 'from-red-400 to-red-700' },
-      { label: 'отложил', value: data.totals.invested, color: 'from-blue-400 to-blue-700' },
+      { label: 'came in', value: data.totals.earned, color: 'from-emerald-400 to-emerald-700' },
+      { label: 'went out', value: data.totals.spent, color: 'from-red-400 to-red-700' },
+      { label: 'set aside', value: data.totals.invested, color: 'from-blue-400 to-blue-700' },
     ],
     barMax: Math.max(data.totals.earned, data.totals.spent, data.totals.invested, 1),
   })
 
-  if (top) {
+  if (data.categories.length > 0) {
+    const top = data.categories[0]
     slides.push({
       id: 'category',
-      kicker: 'главная статья',
-      title: top.name,
+      kicker: 'top categories',
+      title: `Most of it went to ${top.name}`,
       value: top.amount,
-      body: `${top.share}% всех расходов года`,
-      categories: data.categories.slice(0, 3),
-      spendTotal: data.totals.spent,
+      categories: data.categories,
+      body: `${top.name} took ${Math.round(top.share)}% of everything you spent.`,
     })
   }
 
   if (data.biggest_day) {
     slides.push({
       id: 'biggest-day',
-      kicker: 'самый дорогой день',
+      kicker: 'the priciest day',
       value: data.biggest_day.amount,
-      body: `${data.biggest_day.date}, ${data.biggest_day.entries} записей` +
-        (data.biggest_entry ? `. Крупнейшая: ${money(data.biggest_entry.amount)}, ${data.biggest_entry.category}` : ''),
+      body: `${formatDate(data.biggest_day.date)}, ${data.biggest_day.entries} ` +
+        `${plural(data.biggest_day.entries, 'entry', 'entries')}` +
+        (data.biggest_entry ? `. Largest one: ${cash(data.biggest_entry.amount)}, ${data.biggest_entry.category}` : ''),
     })
   }
 
   slides.push({
     id: 'no-spend',
-    kicker: 'дни без трат',
+    kicker: 'days without spending',
     value: data.no_spend_days,
     raw: true,
-    body: data.longest_no_spend_streak?.days
-      ? `Самая длинная серия: ${data.longest_no_spend_streak.days} дней. Средний день трат ${money(data.spend_day_mean)}, медиана ${money(data.spend_day_median)}.`
-      : `Средний день трат ${money(data.spend_day_mean)}, медиана ${money(data.spend_day_median)}.`,
+    body: (data.longest_no_spend_streak?.days
+      ? `Longest run: ${data.longest_no_spend_streak.days} days. `
+      : '') +
+      `Average spending day ${cash(data.spend_day_mean)}, median ${cash(data.spend_day_median)}.`,
     weekdays: [...data.weekdays]
       .sort((left, right) => ((left.index + 6) % 7) - ((right.index + 6) % 7))
-      .map(day => ({ label: WEEKDAY_RU[(day.index + 6) % 7], ratio: day.amount / weekdayMax })),
+      .map(day => ({ label: WEEKDAY_EN[(day.index + 6) % 7], ratio: day.amount / Math.max(...data.weekdays.map(item => item.amount), 1) })),
   })
 
   const parts = []
   if (data.subscriptions.active_rules > 0) {
-    parts.push(`Подписки ${money(data.subscriptions.monthly_amount)} в месяц, ${data.subscriptions.active_rules} ${plural(data.subscriptions.active_rules, 'правило', 'правила', 'правил')}`)
+    parts.push(`Subscriptions ${cash(data.subscriptions.monthly_amount)} a month across ` +
+      `${data.subscriptions.active_rules} ${plural(data.subscriptions.active_rules, 'rule', 'rules')}`)
   }
   if (data.recurring_income?.active_rules > 0) {
-    parts.push(`регулярный доход ${money(data.recurring_income.monthly_amount)} в месяц`)
+    parts.push(`recurring income ${cash(data.recurring_income.monthly_amount)} a month`)
   }
   if (data.transfers_count > 0) {
-    parts.push(`${data.transfers_count} ${plural(data.transfers_count, 'перевод', 'перевода', 'переводов')} между кошельками`)
+    parts.push(`${data.transfers_count} ${plural(data.transfers_count, 'transfer', 'transfers')} between wallets`)
+  }
+  if (data.skipped_rules > 0) {
+    parts.push(`${data.skipped_rules} ${plural(data.skipped_rules, 'rule', 'rules')} left out: no rate found`)
   }
   if (data.logging.median_hour !== null) {
-    parts.push(`обычно записываешь около ${String(data.logging.median_hour).padStart(2, '0')}:00`)
+    parts.push(`you usually log around ${String(data.logging.median_hour).padStart(2, '0')}:00`)
   }
 
   slides.push({
     id: 'habits',
-    kicker: 'постоянные платежи',
+    kicker: 'recurring payments',
     value: data.subscriptions.monthly_amount,
-    suffix: ' в месяц',
+    suffix: ' a month',
     body: parts.length > 0
       ? parts.map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('. ') + '.'
-      : 'Постоянных платежей пока нет.',
+      : 'No recurring payments yet.',
   })
 
   slides.push({
     id: 'final',
-    kicker: 'итог',
+    kicker: 'the year in one line',
     value: data.totals.net,
     prefix: data.totals.net > 0 ? '+' : '',
     tone: data.totals.net >= 0 ? 'green' : 'red',
-    body: `Заработано ${money(data.totals.earned)}, потрачено ${money(data.totals.spent)}, отложено ${money(data.totals.invested)}.` +
-      (data.rates_date ? ` Валюты пересчитаны по курсу на ${formatDate(data.rates_date)}.` : '') +
-      (data.skipped_other_currency > 0 ? ` ${data.skipped_other_currency} записей не попали: не нашёл курс.` : ''),
+    body: `You brought in ${cash(data.totals.earned)}, spent ${cash(data.totals.spent)} ` +
+      `and set aside ${cash(data.totals.invested)}.` +
+      (data.rates_date ? ` Currencies converted at the ${formatDate(data.rates_date)} rate.` : '') +
+      (data.skipped_other_currency > 0
+        ? ` ${data.skipped_other_currency} ${plural(data.skipped_other_currency, 'entry', 'entries')} left out: no rate found.`
+        : ''),
     final: true,
   })
 
   return slides
 }
-
 
 export { SLIDE_MS }

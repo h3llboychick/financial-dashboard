@@ -111,6 +111,7 @@ function noSpendStats(expenseDates, year) {
  */
 export function buildWrapped({
   year,
+  currency: requestedCurrency = null,
   entries = [],
   ledgers = [],
   categories = [],
@@ -120,7 +121,7 @@ export function buildWrapped({
   rates_date = null,
 }) {
   const yearEntries = entries.filter(entry => String(entry.date).slice(0, 4) === String(year))
-  const currency = dominantCurrencyForYear(entries, year)
+  const currency = requestedCurrency ?? dominantCurrencyForYear(entries, year)
   const ledgerType = Object.fromEntries(ledgers.map(ledger => [ledger.id, ledger.type]))
   const categoryMap = Object.fromEntries(categories.map(category => [category.id, category]))
 
@@ -201,12 +202,21 @@ export function buildWrapped({
     weekdayTotals[weekday].days += 1
   }
 
-  const ruleRows = rules.map(rule => ({
-    ...rule,
-    type: rule.ledger_type ?? ledgerType[rule.ledger_id],
-    value: rule.currency === currency ? rule.amount : rule.amount * (rates?.[rule.currency] ?? 1),
-  }))
-  const activeRules = ruleRows.filter(rule => rule.active === 1 || rule.active === true)
+  const ruleRows = []
+  let skippedRules = 0
+  for (const rule of rules) {
+    if (!(rule.active === 1 || rule.active === true)) continue
+    const rate = rates?.[rule.currency]
+    const value = rule.currency === currency
+      ? rule.amount
+      : Number.isFinite(rate) ? rule.amount * rate : null
+    if (value === null) {
+      skippedRules += 1
+      continue
+    }
+    ruleRows.push({ ...rule, type: rule.ledger_type ?? ledgerType[rule.ledger_id], value })
+  }
+  const activeRules = ruleRows
   const expenseRules = activeRules.filter(rule => rule.type === 'expense')
   const incomeRules = activeRules.filter(rule => rule.type === 'income')
 
@@ -229,6 +239,7 @@ export function buildWrapped({
     has_data: rows.length > 0,
     entries_counted: rows.length,
     skipped_other_currency: skipped,
+    skipped_rules: skippedRules,
     rates_date,
     totals: {
       earned: round(earned),

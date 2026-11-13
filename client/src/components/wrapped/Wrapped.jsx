@@ -17,7 +17,7 @@ function useReducedMotion() {
   return reduced
 }
 
-function CountUp({ value, enabled, prefix = '', suffix = '' }) {
+function CountUp({ value, currency, enabled, prefix = '', suffix = '' }) {
   const [shown, setShown] = useState(enabled ? 0 : value)
   const frame = useRef(null)
 
@@ -38,10 +38,10 @@ function CountUp({ value, enabled, prefix = '', suffix = '' }) {
     return () => cancelAnimationFrame(frame.current)
   }, [value, enabled])
 
-  return <span className="tabular-nums">{prefix}{money(shown)}{suffix}</span>
+  return <span className="tabular-nums">{prefix}{money(shown, currency)}{suffix}</span>
 }
 
-export default function Wrapped({ year, onClose }) {
+export default function Wrapped({ year, currency, onClose }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [index, setIndex] = useState(0)
@@ -92,7 +92,7 @@ export default function Wrapped({ year, onClose }) {
       <div className="fixed inset-0 z-[60] h-[100dvh] w-screen bg-gray-950 text-white flex items-center justify-center p-8">
         <div className="text-center space-y-4">
           <p className="text-sm text-red-300">{error}</p>
-          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-white/20">Закрыть</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-white/20">Close</button>
         </div>
       </div>
     ), document.body)
@@ -101,7 +101,7 @@ export default function Wrapped({ year, onClose }) {
   if (!data) {
     return createPortal((
       <div className="fixed inset-0 z-[60] h-[100dvh] w-screen bg-gray-950 text-white flex items-center justify-center">
-        <p className="text-sm text-gray-400">Собираем твой год…</p>
+        <p className="text-sm text-gray-400">Putting your year together…</p>
       </div>
     ), document.body)
   }
@@ -129,7 +129,7 @@ export default function Wrapped({ year, onClose }) {
         <button
           onClick={onClose}
           className="absolute right-5 top-10 text-white/60 hover:text-white text-sm"
-          aria-label="Закрыть wrapped"
+          aria-label="Close wrapped"
         >
           ✕
         </button>
@@ -171,7 +171,7 @@ export default function Wrapped({ year, onClose }) {
 
             {slide.value !== undefined && !slide.title && (
               <div className={`text-6xl font-extrabold tracking-tighter ${slide.tone === 'green' ? 'text-emerald-300' : slide.tone === 'red' ? 'text-red-300' : 'text-white'}`}>
-                {slide.raw ? Math.round(slide.value) : <CountUp value={slide.value} enabled={!reduced} prefix={slide.prefix ?? ''} />}
+                {slide.raw ? Math.round(slide.value) : <CountUp value={slide.value} currency={data.currency} enabled={!reduced} prefix={slide.prefix ?? ''} />}
                 {slide.suffix && <span className="text-xl font-semibold text-white/70">{slide.suffix}</span>}
               </div>
             )}
@@ -182,7 +182,7 @@ export default function Wrapped({ year, onClose }) {
                   <div key={category.name}>
                     <div className="flex justify-between text-sm text-white/85">
                       <span>{category.name}</span>
-                      <span className="tabular-nums text-white/60">{money(category.amount)}</span>
+                      <span className="tabular-nums text-white/60">{money(category.amount, data.currency)}</span>
                     </div>
                     <div className="mt-1.5 h-2 rounded bg-white/10 overflow-hidden">
                       <div
@@ -201,7 +201,7 @@ export default function Wrapped({ year, onClose }) {
                   <div key={bar.label}>
                     <div className="flex justify-between text-sm text-white/85">
                       <span>{bar.label}</span>
-                      <span className="tabular-nums">{bar.display ?? money(bar.value)}</span>
+                      <span className="tabular-nums">{bar.display ?? money(bar.value, data.currency)}</span>
                     </div>
                     <div className="mt-1.5 h-2.5 rounded bg-white/10 overflow-hidden">
                       <div
@@ -238,7 +238,7 @@ export default function Wrapped({ year, onClose }) {
                 onClick={event => { event.stopPropagation(); onClose() }}
                 className="mt-8 px-5 py-2.5 rounded-full border border-white/25 text-sm text-white/90 hover:bg-white/10"
               >
-                Готово
+                Done
               </button>
             )}
           </div>
