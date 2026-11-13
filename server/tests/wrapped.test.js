@@ -129,7 +129,7 @@ describe('buildWrapped', () => {
   test('reports subscriptions and transfers', () => {
     const result = wrapped()
 
-    expect(result.subscriptions).toEqual({ active_rules: 2, monthly_amount: 74 })
+    expect(result.recurring_expenses).toEqual({ active_rules: 2, monthly_amount: 74 })
     expect(result.recurring_income).toEqual({ active_rules: 1, monthly_amount: 500 })
     expect(result.transfers_count).toBe(2)
   })

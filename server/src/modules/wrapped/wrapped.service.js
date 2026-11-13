@@ -260,7 +260,7 @@ export function buildWrapped({
     spend_day_mean: spendDayMean,
     spend_day_median: spendDayMedian,
     weekdays: weekdayTotals,
-    subscriptions: {
+    recurring_expenses: {
       active_rules: expenseRules.length,
       monthly_amount: round(expenseRules.reduce((sum, rule) => sum + rule.value, 0)),
     },

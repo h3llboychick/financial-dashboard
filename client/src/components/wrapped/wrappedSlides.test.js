@@ -27,7 +27,7 @@ function payload(overrides = {}) {
     spend_day_mean: 280,
     spend_day_median: 210,
     weekdays: Array.from({ length: 7 }, (_, index) => ({ index, label: 'x', amount: index * 10, days: 1 })),
-    subscriptions: { active_rules: 2, monthly_amount: 17.49 },
+    recurring_expenses: { active_rules: 2, monthly_amount: 305 },
     recurring_income: { active_rules: 1, monthly_amount: 500 },
     transfers_count: 0,
     logging: { median_hour: 21, share_after_22: 12.5 },
@@ -102,12 +102,12 @@ test('counts positive months from the month list, not a separate field', () => {
   assert.equal(slide.title, '1 of 2 in the black')
 })
 
-test('lists subscriptions and recurring income apart', () => {
+test('calls them recurring payments, not subscriptions', () => {
   const slide = buildSlides(payload()).find(item => item.id === 'habits')
 
-  assert.match(slide.body, /Subscriptions €17 a month across 2 rules/)
+  assert.match(slide.body, /Recurring payments €305 a month across 2 rules/)
   assert.match(slide.body, /Recurring income €500 a month/)
-  assert.doesNotMatch(slide.body, /517/)
+  assert.doesNotMatch(slide.body, /[Ss]ubscription/)
 })
 
 test('says when currencies were converted and how many entries were skipped', () => {
