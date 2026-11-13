@@ -170,9 +170,11 @@ export default function Wrapped({ year, onClose }) {
             )}
 
             {slide.value !== undefined && !slide.title && (
-              <div className={`text-6xl font-extrabold tracking-tighter ${slide.tone === 'green' ? 'text-emerald-300' : slide.tone === 'red' ? 'text-red-300' : 'text-white'}`}>
-                {slide.raw ? Math.round(slide.value) : <CountUp value={slide.value} currency={data.currency} enabled={!reduced} prefix={slide.prefix ?? ''} />}
-                {slide.suffix && <span className="text-xl font-semibold text-white/70">{slide.suffix}</span>}
+              <div className="flex items-baseline gap-2.5">
+                <span className={`text-6xl font-extrabold tracking-tighter ${slide.tone === 'green' ? 'text-emerald-300' : slide.tone === 'red' ? 'text-red-300' : 'text-white'}`}>
+                  {slide.raw ? Math.round(slide.value) : <CountUp value={slide.value} currency={data.currency} enabled={!reduced} prefix={slide.prefix ?? ''} />}
+                </span>
+                {slide.suffix && <span className="text-lg font-medium text-white/55">{slide.suffix}</span>}
               </div>
             )}
 

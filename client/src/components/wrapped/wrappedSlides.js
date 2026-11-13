@@ -118,9 +118,9 @@ export function buildSlides(data) {
   })
 
   const parts = []
-  if (data.subscriptions.active_rules > 0) {
-    parts.push(`Subscriptions ${cash(data.subscriptions.monthly_amount)} a month across ` +
-      `${data.subscriptions.active_rules} ${plural(data.subscriptions.active_rules, 'rule', 'rules')}`)
+  if (data.recurring_expenses.active_rules > 0) {
+    parts.push(`Recurring payments ${cash(data.recurring_expenses.monthly_amount)} a month across ` +
+      `${data.recurring_expenses.active_rules} ${plural(data.recurring_expenses.active_rules, 'rule', 'rules')}`)
   }
   if (data.recurring_income?.active_rules > 0) {
     parts.push(`recurring income ${cash(data.recurring_income.monthly_amount)} a month`)
@@ -137,8 +137,8 @@ export function buildSlides(data) {
 
   slides.push({
     id: 'habits',
-    kicker: 'recurring payments',
-    value: data.subscriptions.monthly_amount,
+    kicker: 'monthly commitments',
+    value: data.recurring_expenses.monthly_amount,
     suffix: ' a month',
     body: parts.length > 0
       ? parts.map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('. ') + '.'
