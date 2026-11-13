@@ -50,9 +50,10 @@ function wrapped(overrides = {}) {
     categories,
     transfers: [{ id: 1 }, { id: 2 }],
     rules: [
-      { id: 1, active: 1, amount: 30, currency: 'EUR' },
-      { id: 2, active: 1, amount: 44, currency: 'EUR' },
-      { id: 3, active: 0, amount: 12, currency: 'EUR' },
+      { id: 1, active: 1, amount: 30, currency: 'EUR', ledger_id: 1, ledger_type: 'expense' },
+      { id: 2, active: 1, amount: 44, currency: 'EUR', ledger_id: 1, ledger_type: 'expense' },
+      { id: 3, active: 0, amount: 12, currency: 'EUR', ledger_id: 1, ledger_type: 'expense' },
+      { id: 4, active: 1, amount: 500, currency: 'EUR', ledger_id: 2, ledger_type: 'income' },
     ],
     ...overrides,
   })
@@ -129,6 +130,7 @@ describe('buildWrapped', () => {
     const result = wrapped()
 
     expect(result.subscriptions).toEqual({ active_rules: 2, monthly_amount: 74 })
+    expect(result.recurring_income).toEqual({ active_rules: 1, monthly_amount: 500 })
     expect(result.transfers_count).toBe(2)
   })
 
@@ -151,5 +153,70 @@ describe('buildWrapped', () => {
 
   test('marks a year with data', () => {
     expect(wrapped().has_data).toBe(true)
+  })
+})
+
+describe('currency conversion', () => {
+  test('converts other currencies instead of dropping them', () => {
+    const result = buildWrapped({
+      year: 2026,
+      entries: [
+        entry({ id: 1, date: '2026-01-05', amount: 1000, ledger: 2, category: 12 }),
+        entry({ id: 2, date: '2026-01-10', amount: 500, category: 10 }),
+        entry({ id: 3, date: '2026-01-11', amount: 100, currency: 'USD', category: 11 }),
+      ],
+      ledgers,
+      categories,
+      transfers: [],
+      rules: [],
+      rates: { USD: 0.9 },
+    })
+
+    expect(result.skipped_other_currency).toBe(0)
+    expect(result.entries_counted).toBe(3)
+    expect(result.totals.spent).toBe(590)
+    expect(result.totals).toMatchObject({ earned: 1000, spent: 590, net: 410 })
+  })
+
+  test('keeps income in a second currency, so months stay positive', () => {
+    const result = buildWrapped({
+      year: 2026,
+      entries: [
+        entry({ id: 1, date: '2026-01-28', amount: 700, ledger: 2, category: 12, currency: 'USD' }),
+        entry({ id: 2, date: '2026-01-10', amount: 400, category: 10 }),
+        entry({ id: 3, date: '2026-02-28', amount: 700, ledger: 2, category: 12, currency: 'USD' }),
+        entry({ id: 4, date: '2026-02-10', amount: 300, category: 10 }),
+        entry({ id: 5, date: '2026-03-05', amount: 50, category: 10 }),
+      ],
+      ledgers,
+      categories,
+      transfers: [],
+      rules: [],
+      rates: { USD: 0.9 },
+    })
+
+    expect(result.currency).toBe('EUR')
+    expect(result.totals.earned).toBe(1260)
+    expect(result.months_positive).toBe(2)
+    expect(result.totals.net).toBe(510)
+  })
+})
+
+describe('invariants', () => {
+  test('net always equals earned minus spent minus invested', () => {
+    const result = wrapped()
+
+    expect(result.totals.net).toBe(
+      Math.round((result.totals.earned - result.totals.spent - result.totals.invested + Number.EPSILON) * 100) / 100,
+    )
+  })
+
+  test('monthly sums add up to the yearly totals', () => {
+    const result = wrapped()
+    const sum = key => Math.round(result.months.reduce((total, month) => total + month[key], 0) * 100) / 100
+
+    expect(sum('earned')).toBe(result.totals.earned)
+    expect(sum('spent')).toBe(result.totals.spent)
+    expect(sum('invested')).toBe(result.totals.invested)
   })
 })

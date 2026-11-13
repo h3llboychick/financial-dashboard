@@ -28,22 +28,25 @@ function median(values) {
     : sorted[middle]
 }
 
-function dominantCurrency(rows) {
+/** Currency the year is reported in: the one most entries were made in. */
+export function dominantCurrencyForYear(entries, year) {
   const counts = new Map()
-  for (const row of rows) counts.set(row.currency, (counts.get(row.currency) ?? 0) + 1)
+  for (const entry of entries) {
+    if (String(entry.date).slice(0, 4) !== String(year)) continue
+    counts.set(entry.currency, (counts.get(entry.currency) ?? 0) + 1)
+  }
   return [...counts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] ?? null
 }
 
-function monthTotals(rows, ledgerType) {
+function monthTotals(rows) {
   const months = new Map()
   for (const row of rows) {
     const month = Number(String(row.date).slice(5, 7))
     if (!months.has(month)) months.set(month, { month, earned: 0, spent: 0, invested: 0, net: 0 })
     const bucket = months.get(month)
-    const type = row.ledger_type ?? ledgerType[row.ledger_id]
-    if (type === 'income') bucket.earned += row.amount
-    else if (type === 'investment') bucket.invested += row.amount
-    else bucket.spent += row.amount
+    if (row.type === 'income') bucket.earned += row.value
+    else if (row.type === 'investment') bucket.invested += row.value
+    else bucket.spent += row.value
   }
   return [...months.values()]
     .sort((left, right) => left.month - right.month)
@@ -100,59 +103,86 @@ function noSpendStats(expenseDates, year) {
 }
 
 /**
- * Year in numbers for one user. Pure: everything comes in as arrays, so the
- * whole report can be tested without a database or a clock.
+ * Year in numbers for one user. Pure: arrays in, report out.
  *
- * Money is aggregated in the year's dominant currency; entries in another
- * currency are counted in `skipped_other_currency` instead of being converted,
- * because entries do not remember the rate they were made at.
+ * Every entry is converted into the year's dominant currency using the supplied
+ * rates. Entries whose currency has no rate are skipped and counted, so the
+ * report never silently mixes currencies or drops income without saying so.
  */
-export function buildWrapped({ year, entries = [], ledgers = [], categories = [], transfers = [], rules = [] }) {
+export function buildWrapped({
+  year,
+  entries = [],
+  ledgers = [],
+  categories = [],
+  transfers = [],
+  rules = [],
+  rates = null,
+  rates_date = null,
+}) {
   const yearEntries = entries.filter(entry => String(entry.date).slice(0, 4) === String(year))
-  const currency = dominantCurrency(yearEntries)
-  const rows = yearEntries.filter(entry => entry.currency === currency)
+  const currency = dominantCurrencyForYear(entries, year)
   const ledgerType = Object.fromEntries(ledgers.map(ledger => [ledger.id, ledger.type]))
   const categoryMap = Object.fromEntries(categories.map(category => [category.id, category]))
 
-  const typeOf = entry => entry.ledger_type ?? ledgerType[entry.ledger_id]
-  const expenseRows = rows.filter(entry => typeOf(entry) === 'expense')
-  const incomeRows = rows.filter(entry => typeOf(entry) === 'income')
-  const investmentRows = rows.filter(entry => typeOf(entry) === 'investment')
+  const convert = entry => {
+    if (entry.currency === currency) return entry.amount
+    const rate = rates?.[entry.currency]
+    return Number.isFinite(rate) ? entry.amount * rate : null
+  }
 
-  const earned = incomeRows.reduce((sum, entry) => sum + entry.amount, 0)
-  const spent = expenseRows.reduce((sum, entry) => sum + entry.amount, 0)
-  const invested = investmentRows.reduce((sum, entry) => sum + entry.amount, 0)
+  const rows = []
+  let skipped = 0
+  for (const entry of yearEntries) {
+    const value = convert(entry)
+    if (value === null) {
+      skipped += 1
+      continue
+    }
+    rows.push({
+      ...entry,
+      value,
+      type: entry.ledger_type ?? ledgerType[entry.ledger_id],
+    })
+  }
 
-  const months = monthTotals(rows, ledgerType)
+  const expenseRows = rows.filter(row => row.type === 'expense')
+  const incomeRows = rows.filter(row => row.type === 'income')
+  const investmentRows = rows.filter(row => row.type === 'investment')
+
+  const earned = incomeRows.reduce((sum, row) => sum + row.value, 0)
+  const spent = expenseRows.reduce((sum, row) => sum + row.value, 0)
+  const invested = investmentRows.reduce((sum, row) => sum + row.value, 0)
+
+  const months = monthTotals(rows)
 
   const byCategory = new Map()
-  for (const entry of expenseRows) {
-    const category = categoryMap[entry.category_id] ?? { name: 'Uncategorized', color: '#6b7280' }
-    const current = byCategory.get(entry.category_id) ?? { name: category.name, color: category.color, amount: 0 }
-    current.amount += entry.amount
-    byCategory.set(entry.category_id, current)
+  for (const row of expenseRows) {
+    const category = categoryMap[row.category_id] ?? { name: 'Uncategorized', color: '#6b7280' }
+    const current = byCategory.get(row.category_id) ?? { name: category.name, color: category.color, amount: 0 }
+    current.amount += row.value
+    byCategory.set(row.category_id, current)
   }
   const categoriesRanked = [...byCategory.values()]
     .map(row => ({ ...row, amount: round(row.amount), share: spent > 0 ? round(row.amount / spent * 100) : 0 }))
     .sort((left, right) => right.amount - left.amount)
 
   const byDay = new Map()
-  for (const entry of expenseRows) {
-    const current = byDay.get(entry.date) ?? { date: entry.date, amount: 0, entries: 0 }
-    current.amount += entry.amount
+  for (const row of expenseRows) {
+    const current = byDay.get(row.date) ?? { date: row.date, amount: 0, entries: 0 }
+    current.amount += row.value
     current.entries += 1
-    byDay.set(entry.date, current)
+    byDay.set(row.date, current)
   }
   const daysRanked = [...byDay.values()].sort((left, right) => right.amount - left.amount)
   const biggestDay = daysRanked[0]
     ? { date: daysRanked[0].date, amount: round(daysRanked[0].amount), entries: daysRanked[0].entries }
     : null
 
-  const biggestRow = expenseRows.reduce((best, entry) => (best && best.amount >= entry.amount ? best : entry), null)
+  const biggestRow = expenseRows.reduce((best, row) => (best && best.value >= row.value ? best : row), null)
   const biggestEntry = biggestRow
     ? {
         date: biggestRow.date,
-        amount: round(biggestRow.amount),
+        amount: round(biggestRow.value),
         category: categoryMap[biggestRow.category_id]?.name ?? 'Uncategorized',
         note: biggestRow.note || '',
       }
@@ -164,39 +194,26 @@ export function buildWrapped({ year, entries = [], ledgers = [], categories = []
   const spendDayMean = dayAmounts.length > 0 ? round(dayAmounts.reduce((sum, value) => sum + value, 0) / dayAmounts.length) : 0
   const spendDayMedian = round(median(dayAmounts))
 
-  const weekdayTotals = WEEKDAY_LABELS.map((label, index) => ({
-    index,
-    label,
-    amount: 0,
-    days: 0,
-  }))
+  const weekdayTotals = WEEKDAY_LABELS.map((label, index) => ({ index, label, amount: 0, days: 0 }))
   for (const day of daysRanked) {
     const weekday = new Date(isoToTime(day.date)).getUTCDay()
     weekdayTotals[weekday].amount = round(weekdayTotals[weekday].amount + day.amount)
     weekdayTotals[weekday].days += 1
   }
 
-  const activeRules = rules.filter(rule => rule.active === 1 || rule.active === true)
-  const ruleCurrency = rules.length > 0 ? dominantCurrency(rules) ?? currency : currency
-  const subscriptions = {
-    active_rules: activeRules.length,
-    monthly_amount: round(
-      activeRules
-        .filter(rule => rule.currency === ruleCurrency)
-        .reduce((sum, rule) => sum + rule.amount, 0),
-    ),
-  }
+  const ruleRows = rules.map(rule => ({
+    ...rule,
+    type: rule.ledger_type ?? ledgerType[rule.ledger_id],
+    value: rule.currency === currency ? rule.amount : rule.amount * (rates?.[rule.currency] ?? 1),
+  }))
+  const activeRules = ruleRows.filter(rule => rule.active === 1 || rule.active === true)
+  const expenseRules = activeRules.filter(rule => rule.type === 'expense')
+  const incomeRules = activeRules.filter(rule => rule.type === 'income')
 
   const hours = rows
     .map(entry => String(entry.created_at ?? '').slice(11, 13))
     .map(Number)
     .filter(hour => Number.isInteger(hour))
-  const logging = {
-    median_hour: hours.length > 0 ? Math.round(median(hours)) : null,
-    share_after_22: hours.length > 0
-      ? round(hours.filter(hour => hour >= 22).length / hours.length * 100)
-      : 0,
-  }
 
   const currencyShares = new Map()
   for (const entry of yearEntries) {
@@ -211,7 +228,8 @@ export function buildWrapped({ year, entries = [], ledgers = [], categories = []
     currency,
     has_data: rows.length > 0,
     entries_counted: rows.length,
-    skipped_other_currency: yearEntries.length - rows.length,
+    skipped_other_currency: skipped,
+    rates_date,
     totals: {
       earned: round(earned),
       spent: round(spent),
@@ -231,9 +249,21 @@ export function buildWrapped({ year, entries = [], ledgers = [], categories = []
     spend_day_mean: spendDayMean,
     spend_day_median: spendDayMedian,
     weekdays: weekdayTotals,
-    subscriptions,
+    subscriptions: {
+      active_rules: expenseRules.length,
+      monthly_amount: round(expenseRules.reduce((sum, rule) => sum + rule.value, 0)),
+    },
+    recurring_income: {
+      active_rules: incomeRules.length,
+      monthly_amount: round(incomeRules.reduce((sum, rule) => sum + rule.value, 0)),
+    },
     transfers_count: transfers.length,
-    logging,
+    logging: {
+      median_hour: hours.length > 0 ? Math.round(median(hours)) : null,
+      share_after_22: hours.length > 0
+        ? round(hours.filter(hour => hour >= 22).length / hours.length * 100)
+        : 0,
+    },
     currencies,
   }
 }
