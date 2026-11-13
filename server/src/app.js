@@ -24,6 +24,7 @@ import { makeRecurringInternalRouter } from './modules/recurring/internal.routes
 import { makeRecurringService } from './modules/recurring/recurring.service.js'
 import { makeTransferRepo } from './modules/transfers/transfers.repository.js'
 import { makeTransfersRouter } from './modules/transfers/transfers.routes.js'
+import { makeWrappedRouter } from './modules/wrapped/wrapped.routes.js'
 import { makeWalletsRouter } from './modules/wallets/wallets.routes.js'
 import { makeWalletRepo } from './modules/wallets/wallets.repository.js'
 import { requireAuth, requireAuthDev } from './shared/middleware/authMiddleware.js'
@@ -107,6 +108,7 @@ export function createApp() {
   app.use('/api/wallets', makeWalletsRouter(repos))
   app.use('/api/transfers', makeTransfersRouter(repos))
   app.use('/api/recurring', makeRecurringRouter(repos))
+  app.use('/api/wrapped', makeWrappedRouter(repos))
   app.use('/api/exchange-rates', makeExchangeRatesRouter())
   app.use('/api/exchanges', makeExchangesRouter())
   app.get('/api/config', (req, res) => {
