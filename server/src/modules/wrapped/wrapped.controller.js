@@ -4,7 +4,7 @@ import { buildWrapped, dominantCurrencyForYear } from './wrapped.service.js'
 
 const CURRENCY_CODE = /^[A-Z]{3}$/
 
-export function makeWrappedController({ entry_repo, ledger_repo, category_repo, transfer_repo, recurring_repo }) {
+export function makeWrappedController({ entry_repo, ledger_repo, category_repo, transfer_repo, recurring_repo, settings_repo }) {
   async function show(req, res) {
     const user_id = req.user.user_id
     const year = Object.hasOwn(req.query, 'year')
@@ -15,7 +15,9 @@ export function makeWrappedController({ entry_repo, ledger_repo, category_repo, 
     const rules = recurring_repo.list({ user_id })
     const dominant = dominantCurrencyForYear(entries, year)
     const requested = typeof req.query.currency === 'string' ? req.query.currency.trim().toUpperCase() : ''
-    const target = CURRENCY_CODE.test(requested) ? requested : dominant
+    // the account currency wins: a query parameter is only an explicit override
+    const account = settings_repo.get({ user_id }).currency
+    const target = CURRENCY_CODE.test(requested) ? requested : (account ?? dominant)
     // rules carry a currency too, and it has to be converted the same way
     const sources = [...new Set([
       ...entries.map(entry => entry.currency),

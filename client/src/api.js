@@ -50,13 +50,12 @@ export const createRecurringRule  = (data) => request('/recurring', { method: 'P
 export const updateRecurringRule  = (id, data) => request(`/recurring/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const deleteRecurringRule  = (id)   => request(`/recurring/${id}`, { method: 'DELETE' })
 
-export const getWrapped     = (year, currency) => {
-  const params = new URLSearchParams()
-  if (year) params.set('year', year)
-  if (currency) params.set('currency', currency)
-  const query = params.toString()
-  return request(`/wrapped${query ? `?${query}` : ''}`)
-}
+export const getSettings   = ()     => request('/settings')
+export const saveSettings  = (data) => request('/settings', { method: 'PUT', body: JSON.stringify(data) })
+
+// The report is built in the account currency on the server, so no currency is
+// passed here on purpose.
+export const getWrapped     = (year) => request(`/wrapped${year ? `?year=${year}` : ''}`)
 
 export const getTransfers   = ()     => request('/transfers')
 export const createTransfer = (data) => request('/transfers', { method: 'POST', body: JSON.stringify(data) })

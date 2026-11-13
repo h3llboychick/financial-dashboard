@@ -25,6 +25,8 @@ import { makeRecurringService } from './modules/recurring/recurring.service.js'
 import { makeTransferRepo } from './modules/transfers/transfers.repository.js'
 import { makeTransfersRouter } from './modules/transfers/transfers.routes.js'
 import { makeWrappedRouter } from './modules/wrapped/wrapped.routes.js'
+import { makeSettingsRouter } from './modules/settings/settings.routes.js'
+import { makeSettingsRepo } from './modules/settings/settings.repository.js'
 import { makeWalletsRouter } from './modules/wallets/wallets.routes.js'
 import { makeWalletRepo } from './modules/wallets/wallets.repository.js'
 import { requireAuth, requireAuthDev } from './shared/middleware/authMiddleware.js'
@@ -51,6 +53,7 @@ export function createApp() {
     ledger_repo: makeLedgerRepo(db),
     entry_repo: makeEntryRepo(db),
     wallet_repo: makeWalletRepo(db),
+    settings_repo: makeSettingsRepo(db),
     transfer_repo: makeTransferRepo(db),
     recurring_repo: makeRecurringRepo(db),
   }
@@ -108,6 +111,7 @@ export function createApp() {
   app.use('/api/wallets', makeWalletsRouter(repos))
   app.use('/api/transfers', makeTransfersRouter(repos))
   app.use('/api/recurring', makeRecurringRouter(repos))
+  app.use('/api/settings', makeSettingsRouter(repos))
   app.use('/api/wrapped', makeWrappedRouter(repos))
   app.use('/api/exchange-rates', makeExchangeRatesRouter())
   app.use('/api/exchanges', makeExchangesRouter())
