@@ -56,6 +56,7 @@ export const saveSettings  = (data) => request('/settings', { method: 'PUT', bod
 // The report is built in the account currency on the server, so no currency is
 // passed here on purpose.
 export const getWrapped     = (year) => request(`/wrapped${year ? `?year=${year}` : ''}`)
+export const getWrappedAvailability = () => request('/wrapped/availability')
 
 export const getTransfers   = ()     => request('/transfers')
 export const createTransfer = (data) => request('/transfers', { method: 'POST', body: JSON.stringify(data) })
